@@ -1,5 +1,5 @@
 import { Alert, Badge, Button, Card, Col, Container, Form, Image, Row, Spinner } from 'react-bootstrap';
-import { Calendar, Camera, Edit3, Mail, Phone, Save, User, X } from 'lucide-react';
+import { Calendar, Camera, Edit3, Hash, Mail, Phone, PhoneCall, Save, User, X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
 import axios from 'axios';
@@ -48,7 +48,6 @@ const ProfilePage = () => {
     const file = e.target.files[0];
     setImageFile(file);
     
-    // Preview the selected image
     if (file) {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -80,7 +79,6 @@ const ProfilePage = () => {
         setAlert({ type: 'success', message: 'Profile image updated successfully!' });
         setImage(response.data.profile_image);
         setIsEditing(false);
-        // Refresh user data
         const userResponse = await axios.get(`http://localhost:4000/api/user/get_user`, {
           headers: { token },
         });
@@ -115,7 +113,6 @@ const ProfilePage = () => {
       <Container>
         <Row className="justify-content-center">
           <Col lg={8} xl={6}>
-            {/* Alert */}
             {alert && (
               <Alert 
                 variant={alert.type} 
@@ -127,14 +124,11 @@ const ProfilePage = () => {
               </Alert>
             )}
 
-            {/* Main Profile Card */}
             <Card className="shadow-lg border-0" style={{ borderRadius: '20px', overflow: 'hidden' }}>
-              {/* Header with gradient */}
               <div style={{
                 background: 'linear-gradient(135deg,#764ba2 100% ,rgb(0, 0, 0) 100%)',
                 height: '120px',
                 position: 'relative',
-                
               }}>
                 <div className="d-flex justify-content-center align-items-end h-100 pb-3">
                   <Badge bg="light" text="dark" className="px-3 py-2" style={{ borderRadius: '20px',marginBottom: '50px'}}>
@@ -145,7 +139,6 @@ const ProfilePage = () => {
               </div>
 
               <Card.Body className="text-center" style={{ marginTop: '-60px', paddingTop: '0' }}>
-                {/* Profile Image Section */}
                 <div className="position-relative d-inline-block mb-4">
                   <div style={{
                     width: '120px',
@@ -196,7 +189,6 @@ const ProfilePage = () => {
                   )}
                 </div>
 
-                {/* Edit Form */}
                 {isEditing && (
                   <Card className="mb-4" style={{ borderRadius: '15px', border: '2px dashed #dee2e6' }}>
                     <Card.Body>
@@ -237,7 +229,6 @@ const ProfilePage = () => {
                             onClick={() => {
                               setIsEditing(false);
                               setImageFile(null);
-                              // Reset image preview
                               setImage(user.profile_image || 'https://via.placeholder.com/150');
                             }}
                             style={{ borderRadius: '10px' }}
@@ -251,7 +242,6 @@ const ProfilePage = () => {
                   </Card>
                 )}
 
-                {/* User Information */}
                 <div className="text-start">
                   <Row className="g-3">
                     <Col md={6}>
@@ -325,7 +315,7 @@ const ProfilePage = () => {
                         </Card.Body>
                       </Card>
                     </Col>
-                    
+
                     <Col md={6}>
                       <Card className="h-100 border-0" style={{ backgroundColor: '#f8f9fa', borderRadius: '15px' }}>
                         <Card.Body className="d-flex align-items-center">
@@ -335,6 +325,54 @@ const ProfilePage = () => {
                               height: '40px',
                               borderRadius: '10px',
                               backgroundColor: '#ffc107',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}>
+                              <PhoneCall size={20} color="white" />
+                            </div>
+                          </div>
+                          <div>
+                            <small className="text-muted">Parent Phone</small>
+                            <div className="fw-bold">{user.parent_phone || 'Not provided'}</div>
+                          </div>
+                        </Card.Body>
+                      </Card>
+                    </Col>
+
+                    <Col md={6}>
+                      <Card className="h-100 border-0" style={{ backgroundColor: '#f8f9fa', borderRadius: '15px' }}>
+                        <Card.Body className="d-flex align-items-center">
+                          <div className="me-3">
+                            <div style={{
+                              width: '40px',
+                              height: '40px',
+                              borderRadius: '10px',
+                              backgroundColor: '#17a2b8',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}>
+                              <Hash size={20} color="white" />
+                            </div>
+                          </div>
+                          <div>
+                            <small className="text-muted">Student ID</small>
+                            <div className="fw-bold">{user.student_id || 'Not provided'}</div>
+                          </div>
+                        </Card.Body>
+                      </Card>
+                    </Col>
+                    
+                    <Col md={6}>
+                      <Card className="h-100 border-0" style={{ backgroundColor: '#f8f9fa', borderRadius: '15px' }}>
+                        <Card.Body className="d-flex align-items-center">
+                          <div className="me-3">
+                            <div style={{
+                              width: '40px',
+                              height: '40px',
+                              borderRadius: '10px',
+                              backgroundColor: '#fd7e14',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center'

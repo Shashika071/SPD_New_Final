@@ -2,8 +2,11 @@ import pool from '../config/db.js';
 
 /**
  * Get all available classes for students
+ * Shows classes where student has pending enrollment
  */
 const getAvailableClasses = async (req, res) => {
+  const studentId = req.body.userId;
+
   try {
     const SELECT_CLASSES_QUERY = `
       SELECT 
@@ -17,14 +20,26 @@ const getAvailableClasses = async (req, res) => {
         cs.end_time as endTime,
         cs.schedule_date as scheduleDate,
         cs.recurrence,
-        cs.location
+        cs.location,
+        se.id as enrollmentId,
+        se.payment_status as paymentStatus,
+        se.payment_amount as paymentAmount
       FROM classes c
       JOIN teachers t ON c.teacher_id = t.TeacherID
       LEFT JOIN class_schedules cs ON c.id = cs.class_id
+      LEFT JOIN student_enrollments se ON (
+        se.class_id = c.id AND 
+        se.student_id = ? AND 
+        se.payment_status IN ('pending', 'failed')
+      )
+      WHERE NOT EXISTS (
+        SELECT 1 FROM student_enrollments 
+        WHERE student_id = ? AND class_id = c.id AND payment_status = 'completed'
+      )
       ORDER BY c.class_name, cs.schedule_date
     `;
     
-    const [classes] = await pool.query(SELECT_CLASSES_QUERY);
+    const [classes] = await pool.query(SELECT_CLASSES_QUERY, [studentId, studentId]);
 
     // Group schedules by class
     const classMap = {};
@@ -37,6 +52,9 @@ const getAvailableClasses = async (req, res) => {
           grade: row.grade,
           fees: row.fees,
           teacherName: row.teacherName,
+          enrollmentStatus: row.paymentStatus || 'not_enrolled',
+          enrollmentId: row.enrollmentId || null,
+          paymentAmount: row.paymentAmount || row.fees,
           schedules: []
         };
       }
@@ -90,13 +108,14 @@ const enrollInClass = async (req, res) => {
 
     const classFees = classResult[0].fees || 0;
 
-    // Check if already enrolled
-    const [enrollmentCheck] = await pool.query(
-      'SELECT id FROM student_enrollments WHERE student_id = ? AND class_id = ?',
+    // Check if already completed enrollment exists
+    const [completedEnrollment] = await pool.query(
+      `SELECT id FROM student_enrollments 
+       WHERE student_id = ? AND class_id = ? AND payment_status = 'completed'`,
       [studentId, class_id]
     );
 
-    if (enrollmentCheck.length > 0) {
+    if (completedEnrollment.length > 0) {
       await pool.query('ROLLBACK');
       return res.status(400).json({ 
         success: false, 
@@ -104,24 +123,37 @@ const enrollInClass = async (req, res) => {
       });
     }
 
-    // Create enrollment record
-    const [enrollmentResult] = await pool.query(
-      `INSERT INTO student_enrollments 
-        (student_id, class_id, payment_status, payment_amount)
-       VALUES (?, ?, 'pending', ?)`,
-      [studentId, class_id, classFees]
+    // Check for existing pending enrollment
+    const [pendingEnrollment] = await pool.query(
+      `SELECT id FROM student_enrollments 
+       WHERE student_id = ? AND class_id = ? AND payment_status = 'pending'`,
+      [studentId, class_id]
     );
+
+    let enrollmentId;
+    if (pendingEnrollment.length > 0) {
+      enrollmentId = pendingEnrollment[0].id;
+    } else {
+      // Create new enrollment record
+      const [enrollmentResult] = await pool.query(
+        `INSERT INTO student_enrollments 
+          (student_id, class_id, payment_status, payment_amount)
+         VALUES (?, ?, 'pending', ?)`,
+        [studentId, class_id, classFees]
+      );
+      enrollmentId = enrollmentResult.insertId;
+    }
 
     await pool.query('COMMIT');
 
     res.json({
       success: true,
-      enrollmentId: enrollmentResult.insertId,
+      enrollmentId: enrollmentId,
       paymentRequired: classFees > 0,
       paymentAmount: classFees,
-      paymentLink: classFees > 0 ? 
-        `/api/payment/initiate/${enrollmentResult.insertId}` : 
-        null
+      message: pendingEnrollment.length > 0 ? 
+        'Pending enrollment exists. Please complete payment.' : 
+        'Enrollment created. Please complete payment.'
     });
   } catch (error) {
     await pool.query('ROLLBACK');
@@ -192,7 +224,7 @@ const completeEnrollment = async (req, res) => {
 };
 
 /**
- * Get enrolled classes for student
+ * Get enrolled classes for student (only completed enrollments)
  */
 const getMyClasses = async (req, res) => {
   const studentId = req.body.userId;

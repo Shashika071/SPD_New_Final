@@ -94,10 +94,10 @@ const CustomNavbar = ({ isHomePage }) => {
   };
 
   // Handle Signup
-  const handleSignup = async (name, email, password, phone) => {
+  const handleSignup = async (name, email, password, phone,parentPhone) => {
     setLoading(true);
     try {
-      const response = await axios.post('http://localhost:4000/api/user/register', { name, email, password, phone });
+      const response = await axios.post('http://localhost:4000/api/user/register', { name, email, password, phone,parentPhone });
       if (response.data.success) {
         localStorage.setItem('token', response.data.token);
         setIsAuthenticated(true);
@@ -122,7 +122,8 @@ const CustomNavbar = ({ isHomePage }) => {
     } else {
       const name = e.target.name.value;
       const phone = e.target.phone.value;
-      handleSignup(name, email, password, phone);
+      const parentPhone = e.target.parentPhone.value;
+      handleSignup(name, email, password, phone,parentPhone);
     }
   };
 
@@ -438,7 +439,22 @@ const CustomNavbar = ({ isHomePage }) => {
                       className="form-control-lg rounded-pill px-4"
                     />
                   </Form.Group>
+                  <div className="col-12">
+                <Form.Group controlId="formTelNum">
+                  <Form.Label className="fw-semibold">
+                    <i className="fas fa-envelope me-2"></i>Parent Phone
+                  </Form.Label>
+                  <Form.Control 
+                    type="tel" 
+                    name="parentPhone" 
+                    placeholder="Enter your Parent phone number" 
+                    required 
+                    className="form-control-lg rounded-pill px-4"
+                  />
+                </Form.Group>
+              </div>
                 </div>
+                
               )}
             </div>
             

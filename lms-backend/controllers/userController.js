@@ -4,8 +4,16 @@ import pool from '../config/db.js';
 import validator from 'validator';
 
 // Register Student
+const generateStudentId = (name) => {
+  const randomNum = Math.floor(1000 + Math.random() * 9000); // 4-digit random number
+  const initials = name.split(' ').map(n => n[0]).join('').toUpperCase();
+  return `PH-ST-${initials}-${randomNum}`;
+};
+
+// Register Student
 const registerStudent = async (req, res) => {
-  const { name, password, email, phone } = req.body;
+  const { name, password, email, phone, parentPhone } = req.body;
+  
   try {
     // Validation checks
     if (!validator.isEmail(email)) {
@@ -15,7 +23,18 @@ const registerStudent = async (req, res) => {
       return res.json({ success: false, message: 'Password must be at least 8 characters' });
     }
     if (phone.length !== 10) {
-      return res.json({ success: false, message: 'Please enter a valid phone number' });
+      return res.json({ success: false, message: 'Please enter a valid student phone number' });
+    }
+    if (parentPhone && parentPhone.length !== 10) {
+      return res.json({ success: false, message: 'Please enter a valid parent phone number' });
+    }
+
+    // Check if email already exists
+    const CHECK_EMAIL_QUERY = 'SELECT email FROM students WHERE email = ?';
+    const [emailExists] = await pool.query(CHECK_EMAIL_QUERY, [email]);
+    
+    if (emailExists.length > 0) {
+      return res.json({ success: false, message: 'Email already exists' });
     }
 
     // Hash the password
@@ -25,24 +44,41 @@ const registerStudent = async (req, res) => {
     // Handle profile image
     const profileImage = req.file ? req.file.filename : null;
 
+    // Generate student ID
+    const studentId = generateStudentId(name);
+
     // Insert student into the database
-    const INSERT_STUDENT_QUERY =
-      'INSERT INTO students (student_name, email, password, phone, profile_image) VALUES (?, ?, ?, ?, ?)';
+    const INSERT_STUDENT_QUERY = `
+      INSERT INTO students 
+        (student_id, student_name, email, password, phone, parent_phone, profile_image) 
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
+    
     const [result] = await pool.query(INSERT_STUDENT_QUERY, [
+      studentId,
       name,
       email,
       hashedPassword,
       phone,
+      parentPhone || null, // Make parent phone optional
       profileImage,
     ]);
 
     // Generate token for the newly registered student
-    const token = createToken(result.insertId);
+    const token = createToken(studentId); // Now using the generated studentId
 
-    res.json({ success: true, token });
+    res.json({ 
+      success: true, 
+      token,
+      studentId, // Return the generated ID to the client
+      message: 'Registration successful' 
+    });
   } catch (error) {
-    console.error(error);
-    res.json({ success: false, message: 'Email already exists or error occurred' });
+    console.error('Registration error:', error);
+    res.json({ 
+      success: false, 
+      message: 'Error occurred during registration' 
+    });
   }
 };
 
@@ -138,7 +174,7 @@ const getStudentById = async (req, res) => {
 
   try {
     const SELECT_STUDENT_QUERY =
-      'SELECT student_id, student_name, email, phone, profile_image, registration_date FROM students WHERE student_id = ?';
+      'SELECT student_id, student_name, email, phone, parent_phone, profile_image, registration_date FROM students WHERE student_id = ?';
     const [rows] = await pool.query(SELECT_STUDENT_QUERY, [userId]);
 
     if (rows.length === 0) {
@@ -151,7 +187,6 @@ const getStudentById = async (req, res) => {
     res.status(500).json({ success: false, message: 'Error fetching student data' });
   }
 };
-
 export { 
   loginStudent, 
   registerStudent, 
