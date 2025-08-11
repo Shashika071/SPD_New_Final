@@ -17,7 +17,7 @@ import {
 
 import AdminPanel from './components/AdminPanel';
 import ClassManagement from "./components/ClassManagement";
-import ClassResources from "../../lms-teacher/src/components/ClassResources";
+import ClassResources from "./components/ClassResources";
 import LoginSignup from "./components/LoginSignup";
 import Users from './components/Users';
 import { useTheme } from '@mui/material/styles';
