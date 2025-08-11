@@ -1,5 +1,5 @@
 import 'react-toastify/dist/ReactToastify.css';
-import './LoginSignup.css'; // Import your CSS styles
+import './LoginSignup.css'; // We'll create this CSS file
 
 import React, { useState } from 'react';
 
@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 
 const LoginSignup = () => {
   const navigate = useNavigate();
-  const [isLogin, setIsLogin] = useState(true); // Toggle between login/signup
+  const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -23,18 +23,20 @@ const LoginSignup = () => {
     specialization: '',
     experience_years: '',
     currentDegree: '',
-    currentDiploma: ''
+    currentDiploma: '',
+    rememberMe: false
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [activeTab, setActiveTab] = useState('login');
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     setFormData({
       ...formData,
-      [name]: value
+      [name]: type === 'checkbox' ? checked : value
     });
-    // Clear error when user types
     if (errors[name]) {
       setErrors({
         ...errors,
@@ -46,19 +48,18 @@ const LoginSignup = () => {
   const validateForm = () => {
     const newErrors = {};
     
-    // Common validation for both forms
     if (!formData.email) {
       newErrors.email = 'Email is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Invalid email format';
     }
+    
     if (!formData.password) {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 8) {
       newErrors.password = 'Password must be at least 8 characters';
     }
 
-    // Signup-specific validation
     if (!isLogin) {
       if (!formData.name) newErrors.name = 'Name is required';
       if (!formData.tel_num) {
@@ -128,7 +129,8 @@ const LoginSignup = () => {
       const endpoint = isLogin ? 'login' : 'register';
       const payload = isLogin ? {
         email: formData.email,
-        password: formData.password
+        password: formData.password,
+        rememberMe: formData.rememberMe
       } : {
         name: formData.name,
         email: formData.email,
@@ -148,10 +150,10 @@ const LoginSignup = () => {
       );
 
       if (response.data.success) {
-        toast.success(isLogin ? 'Login successful!' : 'Registration successful!');
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('teacher', JSON.stringify(response.data.teacher));
-        navigate('/dashboard');
+  toast.success(isLogin ? 'Login successful!' : 'Registration successful!');
+  localStorage.setItem('token', response.data.token);
+  localStorage.setItem('teacher', JSON.stringify(response.data.teacher)); // Make sure this matches your API response
+  navigate('/admin');
       } else {
         toast.error(response.data.message || 
           (isLogin ? 'Login failed' : 'Registration failed'));
@@ -167,36 +169,47 @@ const LoginSignup = () => {
 
   const toggleForm = () => {
     setIsLogin(!isLogin);
+    setActiveTab(isLogin ? 'signup' : 'login');
     setErrors({});
   };
 
   return (
     <div className="auth-container">
+      <div className="auth-background">
+        <div className="auth-background-overlay"></div>
+        <div className="auth-background-shapes">
+          <div className="shape-1"></div>
+          <div className="shape-2"></div>
+          <div className="shape-3"></div>
+        </div>
+      </div>
+      
       <div className="auth-wrapper">
         <div className="auth-card">
           {/* Header */}
           <div className="auth-header">
             <div className="logo-container">
-              <i className="fas fa-graduation-cap logo-icon"></i>
+              <div className="logo-circle">
+                <i className="fas fa-graduation-cap logo-icon"></i>
+              </div>
               <h1>PHENIX LMS</h1>
             </div>
             <h2 className="auth-title">
-              {isLogin ? 'Welcome Back' : 'Create Your Account'}
+              {isLogin ? 'Welcome Back!' : 'Join Our Community'}
             </h2>
             <p className="auth-subtitle">
               {isLogin 
-                ? 'Sign in to continue your learning journey' 
-                : 'Register as a teacher to get started'}
+                ? 'Sign in to access your personalized dashboard' 
+                : 'Create an account to start your teaching journey'}
             </p>
           </div>
 
           {/* Form section */}
           <div className="auth-body">
-            {/* Error message */}
-            {Object.values(errors).some(err => err) && (
-              <div className="alert alert-danger fade-in">
-                <i className="fas fa-exclamation-circle me-2"></i>
-                Please fix the errors in the form
+            {/* Social login options (for login only) */}
+            {isLogin && (
+              <div className="social-login">
+    
               </div>
             )}
 
@@ -204,19 +217,29 @@ const LoginSignup = () => {
             <div className="form-tabs">
               <button
                 type="button"
-                className={`tab-btn ${isLogin ? 'active' : ''}`}
-                onClick={() => isLogin || toggleForm()}
+                className={`tab-btn ${activeTab === 'login' ? 'active' : ''}`}
+                onClick={() => {
+                  if (activeTab !== 'login') {
+                    setIsLogin(true);
+                    setActiveTab('login');
+                  }
+                }}
               >
                 <i className="fas fa-sign-in-alt me-2"></i>
-                Login
+                Sign In
               </button>
               <button
                 type="button"
-                className={`tab-btn ${!isLogin ? 'active' : ''}`}
-                onClick={() => !isLogin || toggleForm()}
+                className={`tab-btn ${activeTab === 'signup' ? 'active' : ''}`}
+                onClick={() => {
+                  if (activeTab !== 'signup') {
+                    setIsLogin(false);
+                    setActiveTab('signup');
+                  }
+                }}
               >
                 <i className="fas fa-user-plus me-2"></i>
-                Register
+                Sign Up
               </button>
             </div>
 
@@ -265,13 +288,20 @@ const LoginSignup = () => {
                 </label>
                 <div className="password-input">
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     name="password"
                     value={formData.password}
                     onChange={handleChange}
                     placeholder="Enter your password"
                     className={`form-control ${errors.password ? 'is-invalid' : ''}`}
                   />
+                  <button 
+                    type="button" 
+                    className="password-toggle"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    <i className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                  </button>
                 </div>
                 {errors.password && <div className="invalid-feedback">{errors.password}</div>}
               </div>
@@ -285,7 +315,7 @@ const LoginSignup = () => {
                   </label>
                   <div className="password-input">
                     <input
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       name="confirmPassword"
                       value={formData.confirmPassword}
                       onChange={handleChange}
@@ -296,6 +326,26 @@ const LoginSignup = () => {
                   {errors.confirmPassword && (
                     <div className="invalid-feedback">{errors.confirmPassword}</div>
                   )}
+                </div>
+              )}
+
+              {/* Remember me (login only) */}
+              {isLogin && (
+                <div className="form-options">
+                  <div className="form-check remember-me">
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      id="rememberMe"
+                      name="rememberMe"
+                      checked={formData.rememberMe}
+                      onChange={handleChange}
+                    />
+                    <label className="form-check-label" htmlFor="rememberMe">
+                      Remember me
+                    </label>
+                  </div>
+               
                 </div>
               )}
 
@@ -325,15 +375,18 @@ const LoginSignup = () => {
                       <i className="fas fa-phone icon"></i>
                       Phone Number
                     </label>
-                    <input
-                      type="tel"
-                      name="tel_num"
-                      value={formData.tel_num}
-                      onChange={handleChange}
-                      placeholder="Enter your phone number"
-                      maxLength="10"
-                      className={`form-control ${errors.tel_num ? 'is-invalid' : ''}`}
-                    />
+                    <div className="input-group">
+                      <span className="input-group-text">+94</span>
+                      <input
+                        type="tel"
+                        name="tel_num"
+                        value={formData.tel_num}
+                        onChange={handleChange}
+                        placeholder="Enter your phone number"
+                        maxLength="10"
+                        className={`form-control ${errors.tel_num ? 'is-invalid' : ''}`}
+                      />
+                    </div>
                     {errors.tel_num && <div className="invalid-feedback">{errors.tel_num}</div>}
                   </div>
 
@@ -381,7 +434,7 @@ const LoginSignup = () => {
                         className="btn btn-outline-primary"
                         onClick={handleAddDegree}
                       >
-                        Add
+                        <i className="fas fa-plus"></i>
                       </button>
                     </div>
                     {formData.degrees.length > 0 && (
@@ -421,7 +474,7 @@ const LoginSignup = () => {
                         className="btn btn-outline-primary"
                         onClick={handleAddDiploma}
                       >
-                        Add
+                        <i className="fas fa-plus"></i>
                       </button>
                     </div>
                     {formData.diplomas.length > 0 && (
@@ -516,13 +569,11 @@ const LoginSignup = () => {
               </button>
             </form>
 
-            
-
             {/* Toggle form link */}
-            <div className="toggle-form-link mt-4">
+            <div className="toggle-form-link">
               {isLogin ? "Don't have an account?" : "Already have an account?"}
               <button onClick={toggleForm} className="toggle-link">
-                {isLogin ? 'Create one' : 'Sign in'}
+                {isLogin ? 'Sign up now' : 'Sign in here'}
               </button>
             </div>
           </div>
@@ -531,7 +582,7 @@ const LoginSignup = () => {
           <div className="auth-footer">
             <p>
               <i className="fas fa-shield-alt me-2"></i>
-              Your data is securely protected
+              Your data is securely protected with 256-bit encryption
             </p>
             <p className="copyright">
               © {new Date().getFullYear()} PHENIX LMS. All rights reserved.

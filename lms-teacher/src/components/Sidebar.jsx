@@ -1,74 +1,124 @@
-import './Sidebar.css';
-
 import {
-  AppBar,
+  Analytics as AnalyticsIcon,
+  ChevronLeft,
+  ChevronRight,
+  Dashboard as DashboardIcon,
+  ExpandLess,
+  ExpandMore,
+  Menu as MenuIcon,
+  People as PeopleIcon,
+  Inventory as ProductsIcon,
+  AccountCircle as ProfileIcon,
+  Settings as SettingsIcon
+} from '@mui/icons-material';
+import {
   Avatar,
   Box,
   Button,
-  Chip,
-  CircularProgress,
+  Collapse,
   Dialog,
-  DialogActions,
   DialogContent,
-  DialogContentText,
   DialogTitle,
   Divider,
   Drawer,
   IconButton,
   List,
   ListItem,
+  ListItemButton,
   ListItemIcon,
   ListItemText,
-  Paper,
-  Stack,
   Toolbar,
   Typography,
+  alpha,
+  styled,
   useMediaQuery,
-  useTheme,
+  useTheme
 } from '@mui/material';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import React, { useEffect, useState } from 'react';
 
-import AddCircleIcon from '@mui/icons-material/AddCircle';
-import BadgeIcon from '@mui/icons-material/Badge';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import EditIcon from '@mui/icons-material/Edit';
-import ExitToAppIcon from '@mui/icons-material/ExitToApp';
-import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
-import MenuIcon from '@mui/icons-material/Menu';
-import PeopleIcon from '@mui/icons-material/People';
-import PersonAddIcon from '@mui/icons-material/PersonAdd';
-import PersonIcon from '@mui/icons-material/Person';
-import SchoolIcon from '@mui/icons-material/School';
-import WorkHistoryIcon from '@mui/icons-material/WorkHistory';
+import EventNoteIcon from '@mui/icons-material/EventNote';
+import GroupsIcon from '@mui/icons-material/Groups';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import axios from 'axios';
 
-const Sidebar = () => {
+const drawerWidth = 240;
+
+const StyledDrawer = styled(Drawer)(({ theme }) => ({
+  width: drawerWidth,
+  flexShrink: 0,
+  '& .MuiDrawer-paper': {
+    width: drawerWidth,
+    boxSizing: 'border-box',
+    background: theme.palette.background.default,
+    borderRight: 'none',
+    backgroundImage: 'linear-gradient(to bottom, #3a4b6d, #2c3a5a)',
+    color: theme.palette.common.white,
+  },
+}));
+
+const StyledListItem = styled(ListItemButton)(({ theme, selected }) => ({
+  borderRadius: theme.shape.borderRadius,
+  margin: theme.spacing(0.5, 1),
+  padding: theme.spacing(1, 2),
+  '&:hover': {
+    backgroundColor: alpha(theme.palette.common.white, 0.1),
+  },
+  ...(selected && {
+    backgroundColor: alpha(theme.palette.primary.main, 0.2),
+    borderLeft: `4px solid ${theme.palette.primary.main}`,
+  }),
+}));
+
+function Sidebar({ mobileOpen, handleDrawerToggle }) {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));  
-  const [open, setOpen] = useState(false);  
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
-  const navigate = useNavigate();  
+  const location = useLocation();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [open, setOpen] = useState(true);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [teacherData, setTeacherData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [fileInputKey, setFileInputKey] = useState(Date.now());
-  const fileInputRef = React.useRef();
 
-  const toggleDrawer = () => {
+  const mainMenu = [
+    { text: 'Dashboard', icon: <DashboardIcon />, path: '/admin' },
+    { text: 'Class Management', icon: <EventNoteIcon />, path: '/admin/classManagement' },
+    { text: 'Class Resources', icon: <MenuBookIcon />, path: '/admin/classResources' },
+  ];
+
+  const reportsMenu = [
+    { text: 'Sales', icon: <AnalyticsIcon />, path: '/admin/reports/sales' },
+    { text: 'Traffic', icon: <AnalyticsIcon />, path: '/admin/reports/traffic' },
+  ];
+
+  useEffect(() => {
+    const fetchTeacherData = async () => {
+      const token = localStorage.getItem('token');
+      try {
+        const response = await axios.get('http://localhost:4000/api/teachers/get_guide', {
+          headers: { token }
+        });
+        setTeacherData(response.data.teacher);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching teacher data:', error);
+        setLoading(false);
+      }
+    };
+
+    fetchTeacherData();
+  }, []);
+
+  const handleClick = () => {
     setOpen(!open);
   };
 
-  const handleProfileModalOpen = () => {
-    setProfileModalOpen(true);
+  const handleProfileOpen = () => {
+    setProfileOpen(true);
   };
 
-  const handleProfileModalClose = () => {
-    setProfileModalOpen(false);
-  };
-
-  const handleLogout = () => {
-    localStorage.clear(); 
-    navigate('/');
+  const handleProfileClose = () => {
+    setProfileOpen(false);
   };
 
   const handleFileChange = async (e) => {
@@ -91,334 +141,249 @@ const Sidebar = () => {
       if (response.data.success) {
         setTeacherData(response.data.teacher);
         setFileInputKey(Date.now());
+        handleProfileClose();
+        window.location.reload();
       }
     } catch (error) {
       console.error('Error updating profile image:', error);
     }
   };
 
-  const triggerFileInput = () => {
-    fileInputRef.current.click();
-  };
-
-  useEffect(() => {
-    const fetchTeacherData = async () => {
-      const token = localStorage.getItem('token'); 
-      try {
-        const response = await axios.get('http://localhost:4000/api/teachers/get_guide', {
-          headers: {
-            token: token
-          }
-        });
-        setTeacherData(response.data.teacher);
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching teacher data:', error);
-        setLoading(false);
-      }
-    };
-  
-    fetchTeacherData();
-  }, []);
-
   return (
-    <Box>
-      {isMobile && (
-        <AppBar position="sticky">
-          <Toolbar>
-            <IconButton
-              color="inherit"
-              edge="start"
-              onClick={toggleDrawer}
-              aria-label="menu"
-              sx={{ mr: 2 }}
-            >
-              <MenuIcon />
-            </IconButton>
-            <Typography variant="h6">Tour Management</Typography>
-          </Toolbar>
-        </AppBar>
-      )}
-
-      <Drawer
-        sx={{
-          width: 240,
-          flexShrink: 0,
-          '& .MuiDrawer-paper': {
-            width: 240,
-            boxSizing: 'border-box',
-            backgroundColor: '#333',  
-            color: 'white',
-            paddingTop: '20px',
-          },
-        }}
+    <Box component="nav">
+      <StyledDrawer
         variant={isMobile ? 'temporary' : 'permanent'}
-        anchor="left"
-        open={open}
-        onClose={toggleDrawer}
-        ModalProps={{
-          keepMounted: true,  
-        }}
+        open={mobileOpen}
+        onClose={handleDrawerToggle}
+        ModalProps={{ keepMounted: true }}
       >
-        {/* Profile Section */}
-        <Box 
-          sx={{ 
-            textAlign: 'center', 
-            padding: '10px', 
-            marginBottom: '20px', 
-            position: 'relative',
-            cursor: 'pointer'
-          }}
-          onClick={handleProfileModalOpen}
-        >
-          {loading ? (
-            <CircularProgress sx={{ color: 'white', mt: 1 }} size={20} />
-          ) : (
+        <Toolbar sx={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Box display="flex" alignItems="center" gap={1}>
+           
+            <Typography variant="h6" noWrap>
+              Teacher Panel
+            </Typography>
+          </Box>
+          <IconButton onClick={handleDrawerToggle} color="inherit">
+            {theme.direction === 'rtl' ? <ChevronRight /> : <ChevronLeft />}
+          </IconButton>
+        </Toolbar>
+        
+        <Divider sx={{ borderColor: alpha(theme.palette.common.white, 0.1) }} />
+
+        {/* Teacher Profile */}
+        <Box p={2} textAlign="center">
+          <label htmlFor="sidebar-profile-upload">
+            <Avatar 
+              src={teacherData?.profileImage ? `http://localhost:4000/images/${teacherData.profileImage}` : undefined}
+              sx={{ 
+                width: 64, 
+                height: 64, 
+                margin: '0 auto 8px',
+                border: `2px solid ${theme.palette.primary.main}`,
+                cursor: 'pointer',
+                '&:hover': {
+                  opacity: 0.8
+                }
+              }}
+              onClick={handleProfileOpen}
+            />
+          </label>
+          <input
+            key={fileInputKey}
+            id="sidebar-profile-upload"
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={handleFileChange}
+          />
+          {!loading && teacherData && (
             <>
-              <input
-                type="file"
-                ref={fileInputRef}
-                key={fileInputKey}
-                onChange={handleFileChange}
-                accept="image/*"
-                style={{ display: 'none' }}
-              />
-              <Box sx={{ position: 'relative', display: 'inline-block' }}>
-                <Avatar 
-                  sx={{ 
-                    bgcolor: 'gray', 
-                    width: '100px', 
-                    height: '100px', 
-                    margin: '0 auto',
-                    cursor: 'pointer'
-                  }}
-                  src={teacherData?.profileImage ? `http://localhost:4000/images/${teacherData.profileImage}` : undefined}
-                  onClick={triggerFileInput}
-                >
-                  {!teacherData?.profileImage && <PersonIcon sx={{ fontSize: '50px' }} />}
-                </Avatar>
-                <IconButton
-                  sx={{
-                    position: 'absolute',
-                    bottom: 0,
-                    right: '25%',
-                    backgroundColor: 'primary.main',
-                    '&:hover': {
-                      backgroundColor: 'primary.dark',
-                    },
-                  }}
-                  onClick={triggerFileInput}
-                >
-                  <CloudUploadIcon sx={{ fontSize: '20px', color: 'white' }} />
-                </IconButton>
-              </Box>
-              <Typography variant="subtitle1" sx={{ color: 'white', fontWeight: 600, mt: 1 }}>
-                {teacherData?.name || 'Guest User'}
+              <Typography variant="subtitle1">{teacherData.name}</Typography>
+              <Typography variant="body2" sx={{ color: alpha(theme.palette.common.white, 0.7) }}>
+                {teacherData.email}
               </Typography>
-              <Typography variant="body2" sx={{ color: 'lightgray' }}>
-                {teacherData?.email}
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'lightgray', display: 'block', mt: 1 }}>
-                {teacherData?.specialization}
-              </Typography>
+              <Button 
+                variant="outlined" 
+                size="small" 
+                sx={{ mt: 1, color: 'white', borderColor: 'white' }}
+                onClick={handleProfileOpen}
+                startIcon={<ProfileIcon />}
+              >
+                View Profile
+              </Button>
             </>
           )}
         </Box>
 
-        <List>
+        <Divider sx={{ borderColor: alpha(theme.palette.common.white, 0.1) }} />
 
-          <Divider sx={{ bgcolor: 'white' }} />
-           <ListItem button component={Link} to="/class-management">
-            <ListItemIcon>
-              <PeopleIcon sx={{ color: 'white' }} />
-            </ListItemIcon>
-            <ListItemText primary="Class Management" />
-          </ListItem>
-          <Divider sx={{ bgcolor: 'white' }} />
-          <ListItem button component={Link} to="/add-resources">
-            <ListItemIcon>
-              <PersonAddIcon sx={{ color: 'white' }} />
-            </ListItemIcon>
-            <ListItemText primary="Class Resources" />
-          </ListItem>
-          <Divider sx={{ bgcolor: 'white' }} />
-          <ListItem button component={Link} to="/add-material">
-            <ListItemIcon>
-              <AddCircleIcon sx={{ color: 'white' }} />
-            </ListItemIcon>
-            <ListItemText primary="Add Material" />
-          </ListItem>
-          
-          <Divider sx={{ bgcolor: 'white' }} />
-          <ListItem button component={Link} to="/list-material">
-            <ListItemIcon>
-              <FormatListBulletedIcon sx={{ color: 'white' }} />
-            </ListItemIcon>
-            <ListItemText primary="List Material" />
-          </ListItem>
-          <Divider sx={{ bgcolor: 'white' }} />
-          <ListItem button component={Link} to="/Add-employee">
-            <ListItemIcon>
-              <PersonAddIcon sx={{ color: 'white' }} />
-            </ListItemIcon>
-            <ListItemText primary="Add Employee" />
-          </ListItem>
-          <Divider sx={{ bgcolor: 'white' }} />
-          <ListItem button component={Link} to="/list-employee">
-            <ListItemIcon>
-              <PeopleIcon sx={{ color: 'white' }} />
-            </ListItemIcon>
-            <ListItemText primary="List Employee" />
-          </ListItem>
-          
-          <Divider sx={{ bgcolor: 'white' }} />
-          <ListItem button component={Link} to="/List-machine">
-            <ListItemIcon>
-              <PeopleIcon sx={{ color: 'white' }} />
-            </ListItemIcon>
-            <ListItemText primary="List Machine" />
-          </ListItem>
-          <Divider sx={{ bgcolor: 'white' }} />
-          
+        {/* Main Menu */}
+        <List>
+          {mainMenu.map((item) => (
+            <ListItem key={item.text} disablePadding>
+              <StyledListItem
+                component={Link}
+                to={item.path}
+                selected={location.pathname === item.path}
+              >
+                <ListItemIcon sx={{ color: 'inherit', minWidth: '40px' }}>
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText primary={item.text} />
+              </StyledListItem>
+            </ListItem>
+          ))}
         </List>
 
-        <Box sx={{ position: 'absolute', bottom: '20px', width: '80%', left: '10px', backgroundColor: 'green', borderRadius: '10px' }}>
-          <Button
-            variant="contained"
-            fullWidth
-            onClick={handleLogout}
-            startIcon={<ExitToAppIcon />}
-          >
-            Logout
-          </Button>
-        </Box>
-      </Drawer>
+        {/* Collapsible Reports Section */}
+        <ListItemButton onClick={handleClick}>
+          <ListItemIcon sx={{ color: 'inherit', minWidth: '40px' }}>
+            <AnalyticsIcon />
+          </ListItemIcon>
+          <ListItemText primary="Reports" />
+          {open ? <ExpandLess /> : <ExpandMore />}
+        </ListItemButton>
+        <Collapse in={open} timeout="auto" unmountOnExit>
+          <List component="div" disablePadding>
+            {reportsMenu.map((item) => (
+              <ListItem key={item.text} disablePadding>
+                <StyledListItem
+                  component={Link}
+                  to={item.path}
+                  selected={location.pathname === item.path}
+                  sx={{ pl: 4 }}
+                >
+                  <ListItemIcon sx={{ color: 'inherit', minWidth: '40px' }}>
+                    {item.icon}
+                  </ListItemIcon>
+                  <ListItemText primary={item.text} />
+                </StyledListItem>
+              </ListItem>
+            ))}
+          </List>
+        </Collapse>
 
-      {/* Profile Details Modal */}
-      <Dialog
-        open={profileModalOpen}
-        onClose={handleProfileModalClose}
-        maxWidth="sm"
-        fullWidth
-      >
+        {/* Settings Section */}
+        <Box sx={{ mt: 'auto' }}>
+          <Divider sx={{ borderColor: alpha(theme.palette.common.white, 0.1) }} />
+          <List>
+            <ListItem disablePadding>
+              <StyledListItem
+                component={Link}
+                to="/admin/settings"
+                selected={location.pathname === '/admin/settings'}
+              >
+                <ListItemIcon sx={{ color: 'inherit', minWidth: '40px' }}>
+                  <SettingsIcon />
+                </ListItemIcon>
+                <ListItemText primary="Settings" />
+              </StyledListItem>
+            </ListItem>
+          </List>
+        </Box>
+      </StyledDrawer>
+
+      {/* Profile Dialog */}
+      <Dialog open={profileOpen} onClose={handleProfileClose}>
         <DialogTitle>Teacher Profile</DialogTitle>
         <DialogContent>
-  {teacherData && (
-    <Paper className="profile-card">
-      <Box className="avatar-container">
-        <Avatar 
-          sx={{ 
-            width: 120, 
-            height: 120,
-            bgcolor: 'primary.main',
-            fontSize: '3rem'
-          }}
-          src={teacherData.profileImage ? `http://localhost:4000/images/${teacherData.profileImage}` : undefined}
-        >
-          {!teacherData.profileImage && 
-            <PersonIcon sx={{ fontSize: '60px' }} />
-          }
-        </Avatar>
-      </Box>
-      
-      <Typography className="teacher-name" variant="h5" gutterBottom>
-        {teacherData.name}
-      </Typography>
-      
-      <Typography className="teacher-email" variant="subtitle1" gutterBottom>
-        {teacherData.email}
-      </Typography>
-      
-      <Divider className="divider" />
-      
-      <Box className="qualifications-section">
-        <Box className="detail-row">
-          <BadgeIcon />
-          <Typography variant="body1">
-            <strong>NIC:</strong> {teacherData.nic}
-          </Typography>
-        </Box>
-        
-        <Box className="detail-row">
-          <SchoolIcon />
-          <Typography variant="body1">
-            <strong>Highest Qualification:</strong> {teacherData.highest_qualification}
-          </Typography>
-        </Box>
-        
-        <Box className="detail-row">
-          <WorkHistoryIcon />
-          <Typography variant="body1">
-            <strong>Experience:</strong> {teacherData.experience_years} years
-          </Typography>
-        </Box>
-      </Box>
-      
-      <Divider className="divider" />
-      
-      <Box sx={{ mt: 2 }}>
-        <Typography className="section-title">
-          <SchoolIcon sx={{ mr: 1 }} />
-          Degrees
-        </Typography>
-        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
-          {teacherData.degrees && teacherData.degrees.length > 0 ? (
-            teacherData.degrees.map((degree, index) => (
-              <Chip 
-                key={index} 
-                label={degree} 
-                color="primary" 
-                variant="outlined"
-              />
-            ))
-          ) : (
-            <Typography variant="body2" color="text.secondary">
-              No degrees added
-            </Typography>
+          {teacherData && (
+            <Box sx={{ p: 2, minWidth: 300 }}>
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                mb: 3, 
+                flexDirection: 'column', 
+                alignItems: 'center' 
+              }}>
+                <label htmlFor="dialog-profile-upload">
+                  <Avatar
+                    src={teacherData.profileImage ? `http://localhost:4000/images/${teacherData.profileImage}` : undefined}
+                    sx={{ 
+                      width: 120, 
+                      height: 120,
+                      cursor: 'pointer',
+                      '&:hover': {
+                        opacity: 0.8
+                      }
+                    }}
+                  />
+                </label>
+                <input
+                  key={fileInputKey}
+                  id="dialog-profile-upload"
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={handleFileChange}
+                />
+                <Button 
+                  variant="outlined" 
+                  sx={{ mt: 2 }}
+                  onClick={() => document.getElementById('dialog-profile-upload').click()}
+                >
+                  Change Profile Picture
+                </Button>
+              </Box>
+              <List>
+                <ListItem>
+                  <ListItemText primary="Name" secondary={teacherData.name} />
+                </ListItem>
+                <Divider />
+                <ListItem>
+                  <ListItemText primary="Email" secondary={teacherData.email} />
+                </ListItem>
+                <Divider />
+                <ListItem>
+                  <ListItemText primary="Phone" secondary={teacherData.phone} />
+                </ListItem>
+                <Divider />
+                <ListItem>
+                  <ListItemText primary="NIC" secondary={teacherData.nic} />
+                </ListItem>
+                <Divider />
+                <ListItem>
+                  <ListItemText 
+                    primary="Highest Qualification" 
+                    secondary={teacherData.highest_qualification} 
+                  />
+                </ListItem>
+                <Divider />
+                <ListItem>
+                  <ListItemText 
+                    primary="Degrees" 
+                    secondary={teacherData.degrees?.join(', ') || 'None'} 
+                  />
+                </ListItem>
+                <Divider />
+                <ListItem>
+                  <ListItemText 
+                    primary="Diplomas" 
+                    secondary={teacherData.diplomas?.join(', ') || 'None'} 
+                  />
+                </ListItem>
+                <Divider />
+                <ListItem>
+                  <ListItemText 
+                    primary="Specialization" 
+                    secondary={teacherData.specialization} 
+                  />
+                </ListItem>
+                <Divider />
+                <ListItem>
+                  <ListItemText 
+                    primary="Experience" 
+                    secondary={`${teacherData.experience_years} years`} 
+                  />
+                </ListItem>
+              </List>
+            </Box>
           )}
-        </Stack>
-      </Box>
-      
-      <Box sx={{ mt: 3 }}>
-        <Typography className="section-title">
-          <SchoolIcon sx={{ mr: 1 }} />
-          Diplomas
-        </Typography>
-        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
-          {teacherData.diplomas && teacherData.diplomas.length > 0 ? (
-            teacherData.diplomas.map((diploma, index) => (
-              <Chip 
-                key={index} 
-                label={diploma} 
-                color="secondary" 
-                variant="outlined"
-              />
-            ))
-          ) : (
-            <Typography variant="body2" color="text.secondary">
-              No diplomas added
-            </Typography>
-          )}
-        </Stack>
-      </Box>
-      
-      <Divider className="divider" sx={{ mt: 3 }} />
-      
-      <Typography variant="caption" color="text.secondary">
-        Member since: {new Date(teacherData.joinDate).toLocaleDateString()}
-      </Typography>
-    </Paper>
-  )}
-</DialogContent>
-        <DialogActions>
-          <Button onClick={handleProfileModalClose}>Close</Button>
-        </DialogActions>
+        </DialogContent>
       </Dialog>
-
-      <Box sx={{ marginLeft: isMobile ? 0 : 240, transition: 'margin 0.3s' }}>
-      </Box>
     </Box>
   );
-};
+}
 
 export default Sidebar;

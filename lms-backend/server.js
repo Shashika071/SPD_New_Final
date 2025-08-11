@@ -2,15 +2,9 @@ import 'dotenv/config';
 
 import ClassRouter from './routes/classRouter.js';
 import adminRouter from './routes/adminRouter.js';
-import assignRouter from './routes/assignEmployeesRouter.js';
 import cors from 'cors';
-import employeeRouter from './routes/employeeRoutes.js';
 import express from 'express';
-import machineRouter from './routes/machineRouter.js';
-import materialRouter from './routes/addmaterialRoutes.js';
 import pool from './config/db.js';
-import quotationRouter from './routes/addquotation.js';
-import reportRouter from './routes/reportRouter.js';
 import resourcesRouter from './routes/resourcesRouter.js';
 import studentReandClassRouter from './routes/studentReandClassRouter.js';
 import supervisorsRouter from './routes/teacherRouter.js';
@@ -27,15 +21,10 @@ app.use(cors());
 app.use('/images', express.static('uploads'));
 
 // API endpoints
-app.use('/api/material', materialRouter);
+
 app.use('/api/user', userRouter); 
 app.use('/api/admin', adminRouter);
-app.use('/api/report', reportRouter);
 app.use('/api/teachers', supervisorsRouter);
-app.use('/api/quotation', quotationRouter);
-app.use('/api/employee', employeeRouter);
-app.use('/api/jobs', assignRouter);
-app.use('/api/machine', machineRouter);
 app.use('/api', ClassRouter);
 app.use('/api', resourcesRouter);
 app.use('/api', studentReandClassRouter);
