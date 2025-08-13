@@ -9,6 +9,7 @@ import Footer from './componts/Footer/Footer';
 import Footprints from './componts/Footprints/Footprints';
 import GradePredictor from './pages/GradePredictor';
 import Header from './componts/Header/Header';
+import LearningMaterials from './pages/AssignmentsAndQuestions';
 import MyCalendar from './pages/MyCalendar';
 import MyClasses from './pages/MyClasses';
 import Payment from './pages/Payment';
@@ -81,6 +82,7 @@ const App = () => {
            <Route path="/dashboard/calender" element={<MyCalendar/>} />
           <Route path="/dashboard/my-classes" element={<MyClasses />} />
           <Route path="/classes/:class_id/resources" element={<ClassResourcesPage />} />
+          <Route path="/dashboard/assignments-questions" element={<LearningMaterials />} />
         </Routes>
       </div>
 

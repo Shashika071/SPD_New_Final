@@ -84,6 +84,7 @@ function Sidebar({ mobileOpen, handleDrawerToggle }) {
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/admin' },
     { text: 'Class Management', icon: <EventNoteIcon />, path: '/admin/classManagement' },
     { text: 'Class Resources', icon: <MenuBookIcon />, path: '/admin/classResources' },
+    { text: 'Quiz Management', icon: <MenuBookIcon />, path: '/admin/QuizManagement' },
   ];
 
   const reportsMenu = [

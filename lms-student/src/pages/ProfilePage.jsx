@@ -103,51 +103,58 @@ const ProfilePage = () => {
 
   return (
     <div style={{ 
-      background: 'linear-gradient(135deg,rgb(137, 156, 240) 0%,rgb(137, 156, 240))',
-      minHeight: '80vh',
-      paddingTop: '2rem',
+      background: 'linear-gradient(135deg, #e9eaeeff 0%, #e3dee8ff 100%)',
+      minHeight: '100vh',
+      paddingTop: '5rem',
       paddingBottom: '2rem',
-      marginTop: '80px',
-      borderRadius: '20px',
+      marginTop: '0px',
     }}>
       <Container>
         <Row className="justify-content-center">
-          <Col lg={8} xl={6}>
+          <Col lg={10} xl={8}>
             {alert && (
               <Alert 
                 variant={alert.type} 
                 onClose={() => setAlert(null)} 
                 dismissible
-                className="mb-4"
+                className="mb-4 shadow-sm"
+                style={{ borderRadius: '15px' }}
               >
                 {alert.message}
               </Alert>
             )}
 
             <Card className="shadow-lg border-0" style={{ borderRadius: '20px', overflow: 'hidden' }}>
+              {/* Header Section */}
               <div style={{
-                background: 'linear-gradient(135deg,#764ba2 100% ,rgb(0, 0, 0) 100%)',
-                height: '120px',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                height: '150px',
                 position: 'relative',
               }}>
-                <div className="d-flex justify-content-center align-items-end h-100 pb-3">
-                  <Badge bg="light" text="dark" className="px-3 py-2" style={{ borderRadius: '20px',marginBottom: '50px'}}>
-                    <User size={16} className="me-2" />
+                <div className="d-flex justify-content-center align-items-center h-100">
+                  <Badge bg="light" text="dark" className="px-4 py-2" style={{ 
+                    borderRadius: '25px',
+                    fontSize: '1rem',
+                    fontWeight: '600'
+                  }}>
+                    <User size={18} className="me-2" />
                     My Profile
                   </Badge>
                 </div>
               </div>
 
-              <Card.Body className="text-center" style={{ marginTop: '-60px', paddingTop: '0' }}>
+              <Card.Body className="text-center p-4" style={{ marginTop: '-75px', paddingTop: '0' }}>
+                {/* Profile Image Section */}
                 <div className="position-relative d-inline-block mb-4">
                   <div style={{
-                    width: '120px',
-                    height: '120px',
+                    width: '150px',
+                    height: '150px',
                     borderRadius: '50%',
-                    border: '4px solid white',
+                    border: '5px solid white',
                     overflow: 'hidden',
-                    boxShadow: '0 8px 25px rgba(0,0,0,0.15)',
-                    position: 'relative'
+                    boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+                    position: 'relative',
+                    backgroundColor: '#f8f9fa'
                   }}>
                     <Image
                       src={image && image !== 'https://via.placeholder.com/150' 
@@ -162,8 +169,8 @@ const ProfilePage = () => {
                     />
                     {loading && (
                       <div className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
-                           style={{ backgroundColor: 'rgba(255,255,255,0.8)' }}>
-                        <Spinner animation="border" size="sm" />
+                           style={{ backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: '50%' }}>
+                        <Spinner animation="border" variant="primary" />
                       </div>
                     )}
                   </div>
@@ -172,29 +179,41 @@ const ProfilePage = () => {
                     <Button
                       variant="primary"
                       size="sm"
-                      className="position-absolute"
+                      className="position-absolute shadow"
                       style={{
-                        bottom: '0',
-                        right: '0',
+                        bottom: '10px',
+                        right: '10px',
                         borderRadius: '50%',
-                        width: '32px',
-                        height: '32px',
+                        width: '40px',
+                        height: '40px',
                         padding: '0',
-                        boxShadow: '0 4px 8px rgba(0,0,0,0.2)'
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        border: 'none'
                       }}
                       onClick={() => setIsEditing(true)}
                     >
-                      <Camera size={16} />
+                      <Camera size={18} />
                     </Button>
                   )}
                 </div>
 
+                {/* User Name */}
+                <h3 className="mb-1" style={{ color: '#2c3e50', fontWeight: '700' }}>
+                  {user.student_name || 'Welcome User'}
+                </h3>
+                <p className="text-muted mb-4">Student Profile</p>
+
+                {/* Image Upload Section */}
                 {isEditing && (
-                  <Card className="mb-4" style={{ borderRadius: '15px', border: '2px dashed #dee2e6' }}>
+                  <Card className="mb-4 shadow-sm" style={{ 
+                    borderRadius: '15px', 
+                    border: '2px dashed #dee2e6',
+                    backgroundColor: '#f8f9fa' 
+                  }}>
                     <Card.Body>
                       <Form onSubmit={handleProfileImageUpdate}>
                         <Form.Group className="mb-3">
-                          <Form.Label className="fw-bold">
+                          <Form.Label className="fw-bold d-flex align-items-center justify-content-center">
                             <Camera size={16} className="me-2" />
                             Choose New Profile Image
                           </Form.Label>
@@ -203,6 +222,7 @@ const ProfilePage = () => {
                             accept="image/*" 
                             onChange={handleImageChange}
                             style={{ borderRadius: '10px' }}
+                            className="shadow-sm"
                           />
                         </Form.Group>
                         <div className="d-flex gap-2 justify-content-center">
@@ -211,6 +231,7 @@ const ProfilePage = () => {
                             type="submit" 
                             disabled={loading}
                             style={{ borderRadius: '10px' }}
+                            className="shadow-sm"
                           >
                             {loading ? (
                               <>
@@ -232,6 +253,7 @@ const ProfilePage = () => {
                               setImage(user.profile_image || 'https://via.placeholder.com/150');
                             }}
                             style={{ borderRadius: '10px' }}
+                            className="shadow-sm"
                           >
                             <X size={16} className="me-2" />
                             Cancel
@@ -242,147 +264,198 @@ const ProfilePage = () => {
                   </Card>
                 )}
 
+                {/* User Information Cards */}
                 <div className="text-start">
                   <Row className="g-3">
                     <Col md={6}>
-                      <Card className="h-100 border-0" style={{ backgroundColor: '#f8f9fa', borderRadius: '15px' }}>
-                        <Card.Body className="d-flex align-items-center">
+                      <Card className="h-100 border-0 shadow-sm" style={{ 
+                        backgroundColor: '#f8f9fa', 
+                        borderRadius: '15px',
+                        transition: 'transform 0.2s ease-in-out'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                      onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                      >
+                        <Card.Body className="d-flex align-items-center p-3">
                           <div className="me-3">
                             <div style={{
-                              width: '40px',
-                              height: '40px',
-                              borderRadius: '10px',
-                              backgroundColor: '#667eea',
+                              width: '45px',
+                              height: '45px',
+                              borderRadius: '12px',
+                              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                               display: 'flex',
                               alignItems: 'center',
-                              justifyContent: 'center'
+                              justifyContent: 'center',
+                              boxShadow: '0 4px 8px rgba(102, 126, 234, 0.3)'
                             }}>
-                              <User size={20} color="white" />
+                              <User size={22} color="white" />
                             </div>
                           </div>
-                          <div>
-                            <small className="text-muted">Full Name</small>
-                            <div className="fw-bold">{user.student_name || 'Not provided'}</div>
+                          <div className="flex-grow-1">
+                            <small className="text-muted fw-semibold">Full Name</small>
+                            <div className="fw-bold text-dark">{user.student_name || 'Not provided'}</div>
                           </div>
                         </Card.Body>
                       </Card>
                     </Col>
                     
                     <Col md={6}>
-                      <Card className="h-100 border-0" style={{ backgroundColor: '#f8f9fa', borderRadius: '15px' }}>
-                        <Card.Body className="d-flex align-items-center">
+                      <Card className="h-100 border-0 shadow-sm" style={{ 
+                        backgroundColor: '#f8f9fa', 
+                        borderRadius: '15px',
+                        transition: 'transform 0.2s ease-in-out'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                      onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                      >
+                        <Card.Body className="d-flex align-items-center p-3">
                           <div className="me-3">
                             <div style={{
-                              width: '40px',
-                              height: '40px',
-                              borderRadius: '10px',
-                              backgroundColor: '#764ba2',
+                              width: '45px',
+                              height: '45px',
+                              borderRadius: '12px',
+                              background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
                               display: 'flex',
                               alignItems: 'center',
-                              justifyContent: 'center'
+                              justifyContent: 'center',
+                              boxShadow: '0 4px 8px rgba(118, 75, 162, 0.3)'
                             }}>
-                              <Mail size={20} color="white" />
+                              <Mail size={22} color="white" />
                             </div>
                           </div>
-                          <div>
-                            <small className="text-muted">Email Address</small>
-                            <div className="fw-bold">{user.email || 'Not provided'}</div>
+                          <div className="flex-grow-1">
+                            <small className="text-muted fw-semibold">Email Address</small>
+                            <div className="fw-bold text-dark" style={{ fontSize: '0.9rem', wordBreak: 'break-word' }}>
+                              {user.email || 'Not provided'}
+                            </div>
                           </div>
                         </Card.Body>
                       </Card>
                     </Col>
                     
                     <Col md={6}>
-                      <Card className="h-100 border-0" style={{ backgroundColor: '#f8f9fa', borderRadius: '15px' }}>
-                        <Card.Body className="d-flex align-items-center">
+                      <Card className="h-100 border-0 shadow-sm" style={{ 
+                        backgroundColor: '#f8f9fa', 
+                        borderRadius: '15px',
+                        transition: 'transform 0.2s ease-in-out'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                      onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                      >
+                        <Card.Body className="d-flex align-items-center p-3">
                           <div className="me-3">
                             <div style={{
-                              width: '40px',
-                              height: '40px',
-                              borderRadius: '10px',
-                              backgroundColor: '#28a745',
+                              width: '45px',
+                              height: '45px',
+                              borderRadius: '12px',
+                              background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
                               display: 'flex',
                               alignItems: 'center',
-                              justifyContent: 'center'
+                              justifyContent: 'center',
+                              boxShadow: '0 4px 8px rgba(40, 167, 69, 0.3)'
                             }}>
-                              <Phone size={20} color="white" />
+                              <Phone size={22} color="white" />
                             </div>
                           </div>
-                          <div>
-                            <small className="text-muted">Phone Number</small>
-                            <div className="fw-bold">{user.phone || 'Not provided'}</div>
+                          <div className="flex-grow-1">
+                            <small className="text-muted fw-semibold">Phone Number</small>
+                            <div className="fw-bold text-dark">{user.phone || 'Not provided'}</div>
                           </div>
                         </Card.Body>
                       </Card>
                     </Col>
 
                     <Col md={6}>
-                      <Card className="h-100 border-0" style={{ backgroundColor: '#f8f9fa', borderRadius: '15px' }}>
-                        <Card.Body className="d-flex align-items-center">
+                      <Card className="h-100 border-0 shadow-sm" style={{ 
+                        backgroundColor: '#f8f9fa', 
+                        borderRadius: '15px',
+                        transition: 'transform 0.2s ease-in-out'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                      onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                      >
+                        <Card.Body className="d-flex align-items-center p-3">
                           <div className="me-3">
                             <div style={{
-                              width: '40px',
-                              height: '40px',
-                              borderRadius: '10px',
-                              backgroundColor: '#ffc107',
+                              width: '45px',
+                              height: '45px',
+                              borderRadius: '12px',
+                              background: 'linear-gradient(135deg, #ffc107 0%, #fd7e14 100%)',
                               display: 'flex',
                               alignItems: 'center',
-                              justifyContent: 'center'
+                              justifyContent: 'center',
+                              boxShadow: '0 4px 8px rgba(255, 193, 7, 0.3)'
                             }}>
-                              <PhoneCall size={20} color="white" />
+                              <PhoneCall size={22} color="white" />
                             </div>
                           </div>
-                          <div>
-                            <small className="text-muted">Parent Phone</small>
-                            <div className="fw-bold">{user.parent_phone || 'Not provided'}</div>
+                          <div className="flex-grow-1">
+                            <small className="text-muted fw-semibold">Parent Phone</small>
+                            <div className="fw-bold text-dark">{user.parent_phone || 'Not provided'}</div>
                           </div>
                         </Card.Body>
                       </Card>
                     </Col>
 
                     <Col md={6}>
-                      <Card className="h-100 border-0" style={{ backgroundColor: '#f8f9fa', borderRadius: '15px' }}>
-                        <Card.Body className="d-flex align-items-center">
+                      <Card className="h-100 border-0 shadow-sm" style={{ 
+                        backgroundColor: '#f8f9fa', 
+                        borderRadius: '15px',
+                        transition: 'transform 0.2s ease-in-out'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                      onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                      >
+                        <Card.Body className="d-flex align-items-center p-3">
                           <div className="me-3">
                             <div style={{
-                              width: '40px',
-                              height: '40px',
-                              borderRadius: '10px',
-                              backgroundColor: '#17a2b8',
+                              width: '45px',
+                              height: '45px',
+                              borderRadius: '12px',
+                              background: 'linear-gradient(135deg, #17a2b8 0%, #6610f2 100%)',
                               display: 'flex',
                               alignItems: 'center',
-                              justifyContent: 'center'
+                              justifyContent: 'center',
+                              boxShadow: '0 4px 8px rgba(23, 162, 184, 0.3)'
                             }}>
-                              <Hash size={20} color="white" />
+                              <Hash size={22} color="white" />
                             </div>
                           </div>
-                          <div>
-                            <small className="text-muted">Student ID</small>
-                            <div className="fw-bold">{user.student_id || 'Not provided'}</div>
+                          <div className="flex-grow-1">
+                            <small className="text-muted fw-semibold">Student ID</small>
+                            <div className="fw-bold text-dark">{user.student_id || 'Not provided'}</div>
                           </div>
                         </Card.Body>
                       </Card>
                     </Col>
                     
                     <Col md={6}>
-                      <Card className="h-100 border-0" style={{ backgroundColor: '#f8f9fa', borderRadius: '15px' }}>
-                        <Card.Body className="d-flex align-items-center">
+                      <Card className="h-100 border-0 shadow-sm" style={{ 
+                        backgroundColor: '#f8f9fa', 
+                        borderRadius: '15px',
+                        transition: 'transform 0.2s ease-in-out'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                      onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                      >
+                        <Card.Body className="d-flex align-items-center p-3">
                           <div className="me-3">
                             <div style={{
-                              width: '40px',
-                              height: '40px',
-                              borderRadius: '10px',
-                              backgroundColor: '#fd7e14',
+                              width: '45px',
+                              height: '45px',
+                              borderRadius: '12px',
+                              background: 'linear-gradient(135deg, #fd7e14 0%, #e83e8c 100%)',
                               display: 'flex',
                               alignItems: 'center',
-                              justifyContent: 'center'
+                              justifyContent: 'center',
+                              boxShadow: '0 4px 8px rgba(253, 126, 20, 0.3)'
                             }}>
-                              <Calendar size={20} color="white" />
+                              <Calendar size={22} color="white" />
                             </div>
                           </div>
-                          <div>
-                            <small className="text-muted">Member Since</small>
-                            <div className="fw-bold">{formatDate(user.registration_date)}</div>
+                          <div className="flex-grow-1">
+                            <small className="text-muted fw-semibold">Member Since</small>
+                            <div className="fw-bold text-dark">{formatDate(user.registration_date)}</div>
                           </div>
                         </Card.Body>
                       </Card>

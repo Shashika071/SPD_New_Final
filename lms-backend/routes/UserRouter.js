@@ -1,4 +1,4 @@
-import { deleteStudent, getStudentById, getStudents, loginStudent, registerStudent, updateProfileImage } from "../controllers/userController.js";
+import { deleteStudent, getAssignmentDetails, getQuestionDetails, getStudentAssignments, getStudentById, getStudentQuestions, getStudents, loginStudent, registerStudent, updateProfileImage } from "../controllers/userController.js";
 
 import authMiddleware from "../middleware/auth.js";
 import express from "express";
@@ -39,4 +39,11 @@ userRouter.get("/get_users", getStudents);
 userRouter.get("/get_user", authMiddleware, getStudentById);
 userRouter.post('/update', authMiddleware, upload.single('profile_image'), updateProfileImage);
 
+
+userRouter.get("/assignments", authMiddleware, getStudentAssignments);
+userRouter.get("/assignments/get_id", authMiddleware, getAssignmentDetails);
+
+// Question routes (protected)
+userRouter.get("/questions", authMiddleware, getStudentQuestions);
+userRouter.get("/questions/get_id", authMiddleware, getQuestionDetails);
 export default userRouter;

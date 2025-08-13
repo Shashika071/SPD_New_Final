@@ -114,7 +114,7 @@ const AvailableClasses = () => {
                 <h3 style={styles.cardTitle}>{cls.className}</h3>
                 <div style={styles.feeContainer}>
                   <span style={cls.fees ? styles.paidBadge : styles.freeBadge}>
-                    {cls.fees ? `$${cls.fees}` : 'FREE'}
+                    {cls.fees ? `Rs.${cls.fees}` : 'FREE'}
                   </span>
                 </div>
               </div>

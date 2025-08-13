@@ -1,4 +1,5 @@
 import "react-toastify/dist/ReactToastify.css";
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
 import {
@@ -19,6 +20,7 @@ import AdminPanel from './components/AdminPanel';
 import ClassManagement from "./components/ClassManagement";
 import ClassResources from "./components/ClassResources";
 import LoginSignup from "./components/LoginSignup";
+import TeacherDashboard from "./components/TeacherDashboard";
 import Users from './components/Users';
 import { useTheme } from '@mui/material/styles';
 
@@ -33,6 +35,7 @@ function App() {
             <Route path="users" element={<Users />} />
             <Route path="classResources" element={<ClassResources />} />
             <Route path="classManagement" element={<ClassManagement />} />
+            <Route path="QuizManagement" element={<TeacherDashboard />} />
           </Route>
           <Route path="/" element={<Navigate to="/login" />} />
         </Routes>

@@ -13,6 +13,7 @@
   "dependencies": {
     "bcrypt": "^5.1.1",
     "body-parser": "^1.20.3",
+    "bootstrap": "^5.3.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "esm": "^3.2.25",
@@ -25,6 +26,7 @@
     "mysql2": "^3.11.5",
     "nodemon": "^3.1.7",
     "path": "^0.12.7",
+    "react-bootstrap": "^2.10.10",
     "react-toastify": "^10.0.6",
     "sequelize": "^6.37.5",
     "server": "^1.0.41",

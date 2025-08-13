@@ -483,9 +483,7 @@ const deletePastPaper = async (req, res) => {
   const { past_paper_id } = req.body;
   const teacherId = req.body.userId;
 
-  console.log('Received past_paper_id:', past_paper_id);
-  console.log('Teacher ID:', teacherId);
-
+ 
   try {
     // Get class_id of this past paper to verify ownership
     const [result] = await pool.query(
@@ -552,6 +550,312 @@ const deleteVideo = async (req, res) => {
     res.status(500).json({ success: false, message: 'Error deleting video' });
   }
 };
+/**
+ * Get all students enrolled in teacher's classes
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
+const getTeacherStudents = async (req, res) => {
+  const teacherId = req.body.userId;
+
+  try {
+    // Get all classes taught by this teacher
+    const [classes] = await pool.query(
+      'SELECT id FROM classes WHERE teacher_id = ?',
+      [teacherId]
+    );
+
+    if (classes.length === 0) {
+      return res.json({
+        success: true,
+        students: []
+      });
+    }
+
+    const classIds = classes.map(c => c.id);
+
+    // Get all students enrolled in these classes
+    const [enrollments] = await pool.query(`
+      SELECT s.student_id, s.student_name, s.email, s.phone, 
+             s.parent_phone, s.profile_image,
+             se.class_id, c.class_name, c.subject, c.grade,
+             se.enrollment_date, se.payment_status
+      FROM student_enrollments se
+      JOIN students s ON se.student_id = s.student_id
+      JOIN classes c ON se.class_id = c.id
+      WHERE se.class_id IN (?)
+      ORDER BY s.student_name ASC
+    `, [classIds]);
+
+    res.json({
+      success: true,
+      students: enrollments
+    });
+  } catch (error) {
+    console.error('Error fetching teacher students:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching students'
+    });
+  }
+};
+
+/**
+ * Update student assignment submission (status, marks, feedback)
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
+const updateStudentSubmission = async (req, res) => {
+  const {  grade, feedback, status } = req.body;
+  const teacherId = req.body.userId;
+  const { submission_id } = req.params;
+  try {
+    // Verify the teacher has permission to grade this submission
+    const [verify] = await pool.query(`
+      SELECT a.id 
+      FROM assignment_submissions asub
+      JOIN assignments a ON asub.assignment_id = a.id
+      JOIN classes c ON a.class_id = c.id
+      WHERE asub.id = ? AND c.teacher_id = ?
+    `, [submission_id, teacherId]);
+
+    if (verify.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to grade this submission'
+      });
+    }
+
+    // Update the submission
+    const UPDATE_QUERY = `
+      UPDATE assignment_submissions 
+      SET grade = ?, feedback = ?, status = ?
+      WHERE id = ?
+    `;
+    await pool.query(UPDATE_QUERY, [
+      grade || null,
+      feedback || null,
+      status || 'graded',
+      submission_id
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Submission updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating submission:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating submission'
+    });
+  }
+};
+
+/**
+ * Update student question answer (marks, feedback)
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
+const updateStudentAnswer = async (req, res) => {
+  const {  marks, feedback } = req.body;
+  const teacherId = req.body.userId;
+  const { answer_id } = req.params;
+
+  try {
+    // Verify the teacher has permission to grade this answer
+    const [verify] = await pool.query(`
+      SELECT q.id 
+      FROM question_answers qa
+      JOIN questions q ON qa.question_id = q.id
+      JOIN classes c ON q.class_id = c.id
+      WHERE qa.id = ? AND c.teacher_id = ?
+    `, [answer_id, teacherId]);
+
+    if (verify.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to grade this answer'
+      });
+    }
+
+    // Update the answer
+    const UPDATE_QUERY = `
+      UPDATE question_answers 
+      SET marks = ?, feedback = ?, status = 'graded'
+      WHERE id = ?
+    `;
+    await pool.query(UPDATE_QUERY, [
+      marks || null,
+      feedback || null,
+      answer_id
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Answer graded successfully'
+    });
+  } catch (error) {
+    console.error('Error grading answer:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error grading answer'
+    });
+  }
+};
+
+/**
+ * Get all submissions for an assignment
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
+const getAssignmentSubmissions = async (req, res) => {
+  const { assignment_id } = req.params;
+  const teacherId = req.body.userId;
+
+  try {
+    // Verify the teacher owns this assignment
+    const [verify] = await pool.query(`
+      SELECT a.id 
+      FROM assignments a
+      JOIN classes c ON a.class_id = c.id
+      WHERE a.id = ? AND c.teacher_id = ?
+    `, [assignment_id, teacherId]);
+
+    if (verify.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to view submissions for this assignment'
+      });
+    }
+
+    // Get all submissions
+    const [submissions] = await pool.query(`
+      SELECT asub.*, s.student_name, s.profile_image as student_image
+      FROM assignment_submissions asub
+      JOIN students s ON asub.student_id = s.student_id
+      WHERE asub.assignment_id = ?
+      ORDER BY asub.submission_date DESC
+    `, [assignment_id]);
+
+    res.json({
+      success: true,
+      submissions
+    });
+  } catch (error) {
+    console.error('Error fetching submissions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching submissions'
+    });
+  }
+};
+
+/**
+ * Get all answers for a question
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
+const getQuestionAnswers = async (req, res) => {
+  const { question_id } = req.params;
+  const teacherId = req.body.userId;
+
+  try {
+    // Fetch question type + verify if teacher owns the question
+    const [questionResult] = await pool.query(`
+      SELECT q.id, q.question_type
+      FROM questions q
+      JOIN classes c ON q.class_id = c.id
+      WHERE q.id = ? AND c.teacher_id = ?
+    `, [question_id, teacherId]);
+
+    if (questionResult.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to view answers for this question'
+      });
+    }
+
+    const question = questionResult[0];
+
+    // Skip answers if it's a multiple choice question
+    if (question.question_type === 'multiple_choice') {
+      return res.status(200).json({
+        success: true,
+        message: 'This is a multiple choice question. Student answers are not displayed.',
+        answers: []
+      });
+    }
+
+    // Get all answers
+    const [answers] = await pool.query(`
+      SELECT qa.*, s.student_name, s.profile_image as student_image
+      FROM question_answers qa
+      JOIN students s ON qa.student_id = s.student_id
+      WHERE qa.question_id = ?
+      ORDER BY qa.created_at DESC
+    `, [question_id]);
+
+    res.json({
+      success: true,
+      answers
+    });
+
+  } catch (error) {
+    console.error('Error fetching answers:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching answers'
+    });
+  }
+};
+const getStudentEnrollments = async (req, res) => {
+  const { student_id } = req.params;
+  const teacherId = req.body.userId;
+
+  try {
+    // Verify the teacher has at least one class with this student and get student details
+    const [verify] = await pool.query(`
+      SELECT se.id, s.profile_image, s.student_name
+      FROM student_enrollments se
+      JOIN classes c ON se.class_id = c.id
+      JOIN students s ON se.student_id = s.student_id
+      WHERE se.student_id = ? AND c.teacher_id = ?
+      LIMIT 1
+    `, [student_id, teacherId]);
+
+    if (verify.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to view this student\'s enrollments'
+      });
+    }
+
+    // Get all enrollments for this student in teacher's classes
+    const [enrollments] = await pool.query(`
+      SELECT se.*, c.class_name, c.subject, c.grade
+      FROM student_enrollments se
+      JOIN classes c ON se.class_id = c.id
+      WHERE se.student_id = ? AND c.teacher_id = ?
+      ORDER BY se.enrollment_date DESC
+    `, [student_id, teacherId]);
+
+    res.json({
+      success: true,
+      enrollments,
+      student: {
+        profile_image: verify[0].profile_image,
+        student_name: verify[0].student_name
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching student enrollments:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching student enrollments'
+    });
+  }
+};
 
 export {
   addQuestion,
@@ -562,7 +866,13 @@ export {
   deleteQuestion,
   deleteAssignment,
   deletePastPaper,
-  deleteVideo
+  deleteVideo,
+  getTeacherStudents,
+  updateStudentSubmission,
+  updateStudentAnswer,
+  getAssignmentSubmissions,
+  getQuestionAnswers,
+  getStudentEnrollments
   
 
 };

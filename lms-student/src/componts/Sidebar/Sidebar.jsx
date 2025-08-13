@@ -16,8 +16,10 @@ const Sidebar = () => {
   const navItems = [
   { path: "/all-class", icon: "bi-collection-play", label: "All Classes" },
   { path: "/dashboard/my-classes", icon: "bi-journal-bookmark", label: "My Classes" },
-  { path: "/dashboard/marks-predictor", icon: "bi-graph-up", label: "Grade Predictor" },
+   { path: "/dashboard/assignments-questions", icon: "bi-journal-text", label: "Learning Materials" },
   { path: "/dashboard/calender", icon: "bi-calendar-event", label: "My Calendar" },
+  { path: "/dashboard/marks-predictor", icon: "bi-graph-up", label: "Grade Predictor" },
+  
   { path: "/profile", icon: "bi-person-circle", label: "Profile" },
 ];
 

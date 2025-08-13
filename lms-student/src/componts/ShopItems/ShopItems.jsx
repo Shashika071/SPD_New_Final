@@ -185,7 +185,8 @@ const CourseCatalog = () => {
         </div>
         
         {/* Enhanced Course Cards */}
-        <Row className="course-cards-row g-4 mb-5">
+        <Row className="course-cards-row g-4 mb-5 px-3">
+
           {courses.map((course, index) => (
             <Col xl={4} lg={6} md={6} sm={12} key={index}>
               <Card className="course-card h-100 shadow-sm border-0 hover-card">

@@ -187,11 +187,246 @@ const getStudentById = async (req, res) => {
     res.status(500).json({ success: false, message: 'Error fetching student data' });
   }
 };
+ const getStudentAssignments = async (req, res) => {
+  const { userId } = req.body;
+
+  try {
+    // First get all classes the student is enrolled in
+    const GET_ENROLLED_CLASSES = `
+      SELECT class_id FROM student_enrollments 
+      WHERE student_id = ? AND payment_status = 'completed'
+    `;
+    const [enrolledClasses] = await pool.query(GET_ENROLLED_CLASSES, [userId]);
+
+    if (enrolledClasses.length === 0) {
+      return res.json({ 
+        success: true, 
+        assignments: [], 
+        message: 'No enrolled classes found' 
+      });
+    }
+
+    const classIds = enrolledClasses.map(c => c.class_id);
+
+    // Get assignments for these classes
+    const GET_ASSIGNMENTS_QUERY = `
+      SELECT a.*, c.class_name 
+      FROM assignments a
+      JOIN classes c ON a.class_id = c.id
+      WHERE a.class_id IN (?)
+      ORDER BY a.due_date ASC
+    `;
+    const [assignments] = await pool.query(GET_ASSIGNMENTS_QUERY, [classIds]);
+
+    // For each assignment, check if student has submitted and get feedback
+    const assignmentsWithStatus = await Promise.all(
+      assignments.map(async (assignment) => {
+        const GET_SUBMISSION_QUERY = `
+          SELECT id, submission_date, grade, status, feedback 
+          FROM assignment_submissions 
+          WHERE assignment_id = ? AND student_id = ?
+          LIMIT 1
+        `;
+        const [submission] = await pool.query(GET_SUBMISSION_QUERY, [
+          assignment.id, 
+          userId
+        ]);
+
+        return {
+          ...assignment,
+          submission: submission[0] || null
+        };
+      })
+    );
+
+    res.json({ 
+      success: true, 
+      assignments: assignmentsWithStatus 
+    });
+  } catch (error) {
+    console.error('Error getting student assignments:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching assignments' 
+    });
+  }
+};
+const getStudentQuestions = async (req, res) => {
+  const { userId } = req.body;
+
+  try {
+    // Get enrolled classes
+    const [enrolledClasses] = await pool.query(
+      `SELECT class_id FROM student_enrollments 
+       WHERE student_id = ? AND payment_status = 'completed'`, 
+      [userId]
+    );
+
+    if (!enrolledClasses.length) {
+      return res.json({ success: true, questions: [] });
+    }
+
+    const classIds = enrolledClasses.map(c => c.class_id);
+    const [questions] = await pool.query(
+      `SELECT q.*, c.class_name FROM questions q
+       JOIN classes c ON q.class_id = c.id
+       WHERE q.class_id IN (?)
+       ORDER BY q.due_date ASC`,
+      [classIds]
+    );
+
+    const questionsWithDetails = await Promise.all(
+      questions.map(async (question) => {
+        // Get answer with feedback
+        const [answer] = await pool.query(
+          `SELECT id, answer_text, document_url, marks, status, feedback 
+           FROM question_answers 
+           WHERE question_id = ? AND student_id = ? LIMIT 1`,
+          [question.id, userId]
+        );
+
+        const result = {
+          ...question,
+          answer: answer[0] || null
+        };
+
+        // Only add options and quizScore for multiple_choice/true_false
+        if (question.question_type === 'multiple_choice' || question.question_type === 'true_false') {
+          const [options] = await pool.query(
+            `SELECT id, option_text, is_correct 
+             FROM question_options WHERE question_id = ?`,
+            [question.id]
+          );
+
+          const [quizAttempt] = await pool.query(
+            `SELECT score FROM quiz_attempts
+             WHERE quiz_id = ? AND student_id = ?
+             ORDER BY attempt_date DESC LIMIT 1`,
+            [question.id, userId]
+          );
+
+          result.options = options;
+          result.quizScore = quizAttempt[0]?.score || null;
+        }
+
+        return result;
+      })
+    );
+
+    res.json({ success: true, questions: questionsWithDetails });
+  } catch (error) {
+    console.error('Error getting questions:', error);
+    res.status(500).json({ success: false, message: 'Error fetching questions' });
+  }
+};
+
+// Get a single assignment with details
+const getAssignmentDetails = async (req, res) => {
+  const { userId, assignmentId } = req.body;
+
+  try {
+    // Verify student has access to this assignment
+    const VERIFY_ACCESS_QUERY = `
+      SELECT a.*, c.class_name 
+      FROM assignments a
+      JOIN classes c ON a.class_id = c.id
+      JOIN student_enrollments se ON a.class_id = se.class_id
+      WHERE a.id = ? AND se.student_id = ? AND se.payment_status = 'completed'
+    `;
+    const [assignment] = await pool.query(VERIFY_ACCESS_QUERY, [assignmentId, userId]);
+
+    if (assignment.length === 0) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied or assignment not found' 
+      });
+    }
+
+    // Get student's submission if exists
+    const GET_SUBMISSION_QUERY = `
+      SELECT * FROM assignment_submissions 
+      WHERE assignment_id = ? AND student_id = ?
+    `;
+    const [submission] = await pool.query(GET_SUBMISSION_QUERY, [assignmentId, userId]);
+
+    res.json({ 
+      success: true,
+      assignment: assignment[0],
+      submission: submission[0] || null
+    });
+  } catch (error) {
+    console.error('Error getting assignment details:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching assignment details' 
+    });
+  }
+};
+
+// Get a single question with details
+const getQuestionDetails = async (req, res) => {
+  const { userId, questionId } = req.body;
+
+  try {
+    const [question] = await pool.query(
+      `SELECT q.*, c.class_name FROM questions q
+       JOIN classes c ON q.class_id = c.id
+       JOIN student_enrollments se ON q.class_id = se.class_id
+       WHERE q.id = ? AND se.student_id = ? AND se.payment_status = 'completed'`,
+      [questionId, userId]
+    );
+
+    if (!question.length) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const [answer] = await pool.query(
+      `SELECT * FROM question_answers 
+       WHERE question_id = ? AND student_id = ?`,
+      [questionId, userId]
+    );
+
+    const result = {
+      question: question[0],
+      answer: answer[0] || null
+    };
+
+    // Only add options and quizScore for multiple_choice/true_false
+    if (question[0].question_type === 'multiple_choice' || question[0].question_type === 'true_false') {
+      const [options] = await pool.query(
+        `SELECT id, option_text, is_correct 
+         FROM question_options WHERE question_id = ?`,
+        [questionId]
+      );
+
+      const [quizAttempt] = await pool.query(
+        `SELECT score FROM quiz_attempts
+         WHERE quiz_id = ? AND student_id = ?
+         ORDER BY attempt_date DESC LIMIT 1`,
+        [questionId, userId]
+      );
+
+      result.options = options;
+      result.correctOptions = options.filter(opt => opt.is_correct);
+      result.quizScore = quizAttempt[0]?.score || null;
+    }
+
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('Error getting question details:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 export { 
   loginStudent, 
   registerStudent, 
   getStudents, 
   deleteStudent, 
   updateProfileImage, 
-  getStudentById 
+  getStudentById,
+  getStudentAssignments,
+  getStudentQuestions,
+  getAssignmentDetails,
+  getQuestionDetails
 };
