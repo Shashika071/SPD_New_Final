@@ -1,5 +1,6 @@
 import {
   attemptQuiz,
+  getAllClassResources,
   getAssignment,
   getAssignmentQuestions,
   getClassResources,
@@ -42,6 +43,7 @@ studentReandClassRouter.post('/enrollments/:enrollmentId/complete', authMiddlewa
 studentReandClassRouter.get('/enrollments/my-classes', authMiddleware, getMyClasses);
 
 studentReandClassRouter.get('/class/:class_id/resources', authMiddleware, getClassResources);
+studentReandClassRouter.get('/class/resources_all', authMiddleware, getAllClassResources);
 
 // Assignment routes
 studentReandClassRouter.get('/assignments/:assignmentId', authMiddleware, getAssignment);

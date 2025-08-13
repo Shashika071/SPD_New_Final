@@ -9,6 +9,7 @@ import Footer from './componts/Footer/Footer';
 import Footprints from './componts/Footprints/Footprints';
 import GradePredictor from './pages/GradePredictor';
 import Header from './componts/Header/Header';
+import MyCalendar from './pages/MyCalendar';
 import MyClasses from './pages/MyClasses';
 import Payment from './pages/Payment';
 import ProfilePage from './pages/ProfilePage';
@@ -60,7 +61,8 @@ const App = () => {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/dashboard" element={<Sidebar />} />
           <Route path="/all-class" element={<AvailableClasses/>} />
-          <Route path="/dashboard/marks-predicator" element={<GradePredictor />} />
+          
+          <Route path="/dashboard/marks-predictor" element={<GradePredictor />} />
           <Route path="/quizzes/:quizId/attempt" element={<QuizAttempt />} />
            <Route path="/assignments/:assignmentId/submit" element={<AssignmentSubmit />} />
         
@@ -76,7 +78,7 @@ const App = () => {
     </Elements>
   }
 />
-
+           <Route path="/dashboard/calender" element={<MyCalendar/>} />
           <Route path="/dashboard/my-classes" element={<MyClasses />} />
           <Route path="/classes/:class_id/resources" element={<ClassResourcesPage />} />
         </Routes>

@@ -124,7 +124,7 @@ const Payment = () => {
               </div>
               <div className="detail-item total">
                 <span>Total:</span>
-                <strong>${formattedAmount}</strong>
+                <strong>Rs.{formattedAmount}</strong>
               </div>
             </div>
           </div>
@@ -228,7 +228,7 @@ const Payment = () => {
                   Processing...
                 </>
               ) : (
-                `Pay $${formattedAmount}`
+                `Pay Rs.${formattedAmount}`
               )}
             </button>
             
@@ -240,9 +240,7 @@ const Payment = () => {
                 </svg>
                 <span>Secure Payment</span>
               </div>
-              <p className="demo-notice">
-                This is a demo. Use test card: <strong>4242 4242 4242 4242</strong>
-              </p>
+           
             </div>
           </>
         )}

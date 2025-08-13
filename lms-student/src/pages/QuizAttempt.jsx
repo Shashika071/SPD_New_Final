@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Col, Container, Form, Row, Spinner } from 'react-bootstrap';
+import { Alert, Button, Card, Container, Form, Spinner } from 'react-bootstrap';
 import { FaCheckCircle, FaClock, FaTimesCircle } from 'react-icons/fa';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -15,7 +15,7 @@ const QuizAttempt = () => {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [result, setResult] = useState(null);
-  const [timeLeft, setTimeLeft] = useState(600); // 10 minutes in seconds
+  const [timeLeft, setTimeLeft] = useState(null);
 
   const getAuthToken = () => localStorage.getItem('token');
 
@@ -28,7 +28,9 @@ const QuizAttempt = () => {
             'token': getAuthToken()
           }
         });
-        setQuiz(response.data.question); // Store the question object directly
+        setQuiz(response.data.question);
+        // Convert minutes to seconds for the timer
+        setTimeLeft(response.data.question.time_limit * 60);
       } catch (err) {
         setError(err.response?.data?.message || 'Failed to load quiz');
       } finally {
@@ -37,8 +39,11 @@ const QuizAttempt = () => {
     };
 
     fetchQuiz();
+  }, [quizId]);
 
-    // Timer countdown
+  useEffect(() => {
+    if (timeLeft === null) return;
+
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
@@ -51,13 +56,18 @@ const QuizAttempt = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [quizId]);
+  }, [timeLeft]);
 
   const handleOptionChange = (optionId) => {
     setSelectedOption(optionId);
   };
 
   const handleSubmit = async () => {
+    if (timeLeft !== null && timeLeft <= 0) {
+      setError('Time has run out!');
+      return;
+    }
+
     if (!selectedOption) {
       setError('Please select an answer before submitting');
       return;
@@ -87,6 +97,7 @@ const QuizAttempt = () => {
   };
 
   const formatTime = (seconds) => {
+    if (seconds === null || isNaN(seconds)) return '0:00';
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
@@ -148,7 +159,7 @@ const QuizAttempt = () => {
                 </Card.Text>
               </>
             )}
-            <Button variant="primary" onClick={() => navigate(-1)}>  {/* Changed this line */}
+            <Button variant="primary" onClick={() => navigate(-1)}>
               Go Back
             </Button>
           </Card.Body>
@@ -169,7 +180,7 @@ const QuizAttempt = () => {
         <Card.Body>
           <Card.Title>{quiz.question_text}</Card.Title>
           <Card.Text className="text-muted mb-4">
-            Points: {quiz.points}
+            Points: {quiz.points} | Time Limit: {quiz.time_limit} minute(s)
           </Card.Text>
 
           <Form>
@@ -194,7 +205,7 @@ const QuizAttempt = () => {
               variant="primary"
               size="lg"
               onClick={handleSubmit}
-              disabled={submitting || !selectedOption}
+              disabled={submitting || !selectedOption || (timeLeft !== null && timeLeft <= 0)}
             >
               {submitting ? (
                 <>

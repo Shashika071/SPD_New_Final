@@ -5,7 +5,7 @@ const getClassResources = async (req, res) => {
   const studentId = req.body.userId;
 
   try {
-    // Verify student is enrolled and payment is complete
+    // 1. Verify student enrollment & payment
     const [enrollment] = await pool.query(
       `SELECT id FROM student_enrollments 
        WHERE student_id = ? AND class_id = ? AND payment_status = 'completed'`,
@@ -13,96 +13,101 @@ const getClassResources = async (req, res) => {
     );
 
     if (enrollment.length === 0) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Not enrolled or payment not completed' 
+      return res.status(403).json({
+        success: false,
+        message: 'Not enrolled or payment not completed'
       });
     }
 
-    // Get all resources in parallel
+    // 2. Fetch questions (with due_date + time_limit) and check if attempted
+    const [questions] = await pool.query(
+      `SELECT q.id, q.class_id, q.question_text, q.question_type, q.points, q.due_date, q.time_limit,
+       CASE WHEN qa.id IS NOT NULL THEN 1 ELSE 0 END as attempted
+       FROM questions q
+       LEFT JOIN quiz_attempts qa ON q.id = qa.quiz_id AND qa.student_id = ?
+       WHERE q.class_id = ?`,
+      [studentId, class_id]
+    );
+
+    // Add options to multiple choice questions
+    const mcQuestions = questions.filter(q => q.question_type === 'multiple_choice');
+    for (const question of mcQuestions) {
+      const [options] = await pool.query(
+        'SELECT id, option_text, is_correct FROM question_options WHERE question_id = ?',
+        [question.id]
+      );
+      question.options = options;
+    }
+
+    // 3. Assignments (with questions + options)
     const [assignments] = await pool.query(
       `SELECT a.*, 
        (SELECT COUNT(*) FROM assignment_submissions 
-        WHERE assignment_id = a.id AND student_id = ?) as submitted
-       FROM assignments a 
-       WHERE a.class_id = ?`, 
-      [studentId, class_id]
-    );
-    
-    // Get all questions (all types) for the class
-    const [questions] = await pool.query(
-      `SELECT q.*, 
+        WHERE assignment_id = a.id AND student_id = ?) as submitted,
        (SELECT COUNT(*) FROM quiz_attempts 
-        WHERE quiz_id = q.id AND student_id = ?) as attempted
-       FROM questions q 
-       WHERE q.class_id = ?`, 
-      [studentId, class_id]
-    );
-    
-    const [pastPapers] = await pool.query(
-      'SELECT * FROM past_papers WHERE class_id = ?', 
-      [class_id]
-    );
-    
-    const [videos] = await pool.query(
-      'SELECT * FROM videos WHERE class_id = ?', 
-      [class_id]
+        WHERE quiz_id = a.id AND student_id = ?) as attempted
+       FROM assignments a 
+       WHERE a.class_id = ?`,
+      [studentId, studentId, class_id]
     );
 
-    // Get questions and options for each assignment
     for (const assignment of assignments) {
       const [assignmentQuestions] = await pool.query(
-        `SELECT q.*, aq.points as assignment_points
+        `SELECT q.*, aq.points as assignment_points,
+         CASE WHEN qa.id IS NOT NULL THEN 1 ELSE 0 END as attempted
          FROM assignment_questions aq
          JOIN questions q ON aq.question_id = q.id
+         LEFT JOIN quiz_attempts qa ON q.id = qa.quiz_id AND qa.student_id = ?
          WHERE aq.assignment_id = ?`,
-        [assignment.id]
+        [studentId, assignment.id]
       );
-      
-      // Get options for each question (only for multiple_choice)
+
       for (const question of assignmentQuestions) {
         if (question.question_type === 'multiple_choice') {
           const [options] = await pool.query(
-            'SELECT * FROM question_options WHERE question_id = ?',
+            'SELECT id, option_text, is_correct FROM question_options WHERE question_id = ?',
             [question.id]
           );
           question.options = options;
         }
       }
-      
+
       assignment.questions = assignmentQuestions;
     }
 
-    // Separate questions by type for the response
-    const quizzes = questions.filter(q => q.question_type === 'multiple_choice');
-    const shortAnswerQuestions = questions.filter(q => q.question_type === 'short_answer');
-    const essayQuestions = questions.filter(q => q.question_type === 'essay');
+    // 4. Past papers & videos
+    const [pastPapers] = await pool.query(
+      'SELECT * FROM past_papers WHERE class_id = ?',
+      [class_id]
+    );
 
-    // Get options for each quiz (multiple_choice questions)
-    for (const quiz of quizzes) {
-      const [options] = await pool.query(
-        'SELECT * FROM question_options WHERE question_id = ?',
-        [quiz.id]
-      );
-      quiz.options = options;
-    }
+    const [videos] = await pool.query(
+      'SELECT * FROM videos WHERE class_id = ?',
+      [class_id]
+    );
+
+    // Separate questions into quizzes (multiple choice) and others
+    const quizzes = questions.filter(q => q.question_type === 'multiple_choice');
+    const short_answer_questions = questions.filter(q => q.question_type === 'short_answer');
+    const essay_questions = questions.filter(q => q.question_type === 'essay');
 
     res.json({
       success: true,
       resources: {
+        questions,
+        short_answer_questions,
+        essay_questions,
         assignments,
-        quizzes,
-        short_answer_questions: shortAnswerQuestions,
-        essay_questions: essayQuestions,
         past_papers: pastPapers,
         videos
       }
     });
+
   } catch (error) {
     console.error('Error fetching class resources:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error fetching class resources' 
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching class resources'
     });
   }
 };
@@ -591,6 +596,119 @@ export const viewQuestion = async (req, res) => {
     });
   }
 };
+
+
+export const  getAllClassResources = async (req, res) => {
+  const studentId = req.body.userId;
+
+  try {
+    // 1. Get all enrolled classes for the student with completed payment
+    const [enrollments] = await pool.query(
+      `SELECT c.id as class_id, c.class_name as class_name
+       FROM student_enrollments se
+       JOIN classes c ON se.class_id = c.id
+       WHERE se.student_id = ? AND se.payment_status = 'completed'`,
+      [studentId]
+    );
+
+    if (enrollments.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: 'No enrolled classes with completed payment found'
+      });
+    }
+
+    // 2. Prepare final resources object
+    const allResources = [];
+
+    for (const enrolledClass of enrollments) {
+      const classId = enrolledClass.class_id;
+
+      // Fetch questions
+      const [questions] = await pool.query(
+        `SELECT id, class_id, question_text, question_type, points, due_date, time_limit
+         FROM questions WHERE class_id = ?`,
+        [classId]
+      );
+
+      const mcQuestions = questions.filter(q => q.question_type === 'multiple_choice');
+      for (const question of mcQuestions) {
+        const [options] = await pool.query(
+          'SELECT id, option_text, is_correct FROM question_options WHERE question_id = ?',
+          [question.id]
+        );
+        question.options = options;
+      }
+
+      // Fetch assignments
+      const [assignments] = await pool.query(
+        `SELECT a.*, 
+         (SELECT COUNT(*) FROM assignment_submissions 
+          WHERE assignment_id = a.id AND student_id = ?) as submitted
+         FROM assignments a 
+         WHERE a.class_id = ?`,
+        [studentId, classId]
+      );
+
+      for (const assignment of assignments) {
+        const [assignmentQuestions] = await pool.query(
+          `SELECT q.*, aq.points as assignment_points
+           FROM assignment_questions aq
+           JOIN questions q ON aq.question_id = q.id
+           WHERE aq.assignment_id = ?`,
+          [assignment.id]
+        );
+
+        for (const question of assignmentQuestions) {
+          if (question.question_type === 'multiple_choice') {
+            const [options] = await pool.query(
+              'SELECT id, option_text, is_correct FROM question_options WHERE question_id = ?',
+              [question.id]
+            );
+            question.options = options;
+          }
+        }
+
+        assignment.questions = assignmentQuestions;
+      }
+
+      // Past papers & videos
+      const [pastPapers] = await pool.query(
+        'SELECT * FROM past_papers WHERE class_id = ?',
+        [classId]
+      );
+
+      const [videos] = await pool.query(
+        'SELECT * FROM videos WHERE class_id = ?',
+        [classId]
+      );
+
+      // Push resources for this class
+      allResources.push({
+        class_id: classId,
+        class_name: enrolledClass.class_name,
+        questions,
+        assignments,
+        past_papers: pastPapers,
+        videos
+      });
+    }
+
+    res.json({
+      success: true,
+      resources: allResources
+    });
+
+  } catch (error) {
+    console.error('Error fetching all class resources:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching all class resources'
+    });
+  }
+};
+
+
 export {
   getClassResources,
   attemptQuiz

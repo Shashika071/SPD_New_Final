@@ -34,15 +34,20 @@ const ClassResources = () => {
               }
             }
           );
-          setResources({
           
-            quizzes: response.data.resources.quizzes || [],
-            assignments: response.data.resources.assignments || [],
-            short_answer_questions: response.data.resources.short_answer_questions || [],
-            essay_questions: response.data.resources.essay_questions || [],
-            past_papers: response.data.resources.past_papers || [],
-            videos: response.data.resources.videos || []
-          });
+          // Transform the API response to match our UI structure
+          const apiResources = response.data.resources;
+          const transformedResources = {
+            assignments: apiResources.assignments || [],
+            past_papers: apiResources.past_papers || [],
+            videos: apiResources.videos || [],
+            // Separate questions into different types
+            quizzes: (apiResources.questions || []).filter(q => q.question_type === 'multiple_choice'),
+            short_answer_questions: (apiResources.questions || []).filter(q => q.question_type === 'short_answer'),
+            essay_questions: (apiResources.questions || []).filter(q => q.question_type === 'essay')
+          };
+          
+          setResources(transformedResources);
         } catch (err) {
           setError(err.response?.data?.message || 'Failed to fetch resources');
         } finally {
@@ -67,8 +72,13 @@ const ClassResources = () => {
 
     const formatDate = (dateString) => {
       if (!dateString) return 'No due date';
-      const options = { year: 'numeric', month: 'long', day: 'numeric' };
+      const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
       return new Date(dateString).toLocaleDateString(undefined, options);
+    };
+
+    const formatTimeLimit = (minutes) => {
+      if (!minutes) return 'No time limit';
+      return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
     };
 
     const tabs = [
@@ -181,57 +191,75 @@ const ClassResources = () => {
     );
 
     const renderQuizzes = () => (
-      <div>
-        <h3 style={styles.sectionTitle}>❓ Quizzes</h3>
-        {resources.quizzes.length === 0 ? (
-          <div style={styles.emptyState}>
-            <div style={styles.emptyIcon}>❓</div>
-            <p style={styles.emptyText}>No quizzes available</p>
-          </div>
-        ) : (
-          <div style={styles.grid}>
-            {resources.quizzes.map(quiz => (
-              <div key={quiz.id} style={styles.card}>
-                <div style={styles.cardHeader}>
-                  <h4 style={styles.cardTitle}>Quiz #{quiz.id}</h4>
-                  <div style={styles.badgeContainer}>
-                    <span style={quiz.attempted ? styles.successBadge : styles.warningBadge}>
-                      {quiz.attempted ? '✅ Attempted' : '⏳ Not Attempted'}
-                    </span>
-                  </div>
-                </div>
-                <div style={styles.cardBody}>
-                  <p style={styles.cardDescription}>
-                    {quiz.question_text || 'No description provided'}
-                  </p>
-                  <div style={styles.cardInfo}>
-                    <div style={styles.infoItem}>
-                      <span style={styles.infoIcon}>⭐</span>
-                      <span style={styles.infoText}>Points: {quiz.points}</span>
-                    </div>
-                    <div style={styles.infoItem}>
-                      <span style={styles.infoIcon}>📊</span>
-                      <span style={styles.infoText}>Options: {quiz.options?.length || 0}</span>
-                    </div>
-                  </div>
-                </div>
-                {!quiz.attempted && (
-                  <div style={styles.cardFooter}>
-                    <button
-                      onClick={() => handleQuizAttempt(quiz.id)}
-                      style={styles.primaryButton}
-                    >
-                      Attempt Quiz
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+  <div>
+    <h3 style={styles.sectionTitle}>❓ Quizzes</h3>
+    {resources.quizzes.length === 0 ? (
+      <div style={styles.emptyState}>
+        <div style={styles.emptyIcon}>❓</div>
+        <p style={styles.emptyText}>No quizzes available</p>
       </div>
-    );
-
+    ) : (
+      <div style={styles.grid}>
+        {resources.quizzes.map(quiz => (
+          <div key={quiz.id} style={styles.card}>
+            <div style={styles.cardHeader}>
+              <h4 style={styles.cardTitle}>Quiz #{quiz.id}</h4>
+              <div style={styles.badgeContainer}>
+                <span style={quiz.attempted ? styles.successBadge : styles.warningBadge}>
+                  {quiz.attempted ? '✅ Attempted' : '⏳ Not Attempted'}
+                </span>
+              </div>
+            </div>
+            <div style={styles.cardBody}>
+              <p style={styles.cardDescription}>
+                {quiz.question_text || 'No description provided'}
+              </p>
+              <div style={styles.cardInfo}>
+                <div style={styles.infoItem}>
+                  <span style={styles.infoIcon}>📅</span>
+                  <span style={styles.infoText}>Due: {formatDate(quiz.due_date)}</span>
+                </div>
+                <div style={styles.infoItem}>
+                  <span style={styles.infoIcon}>⏱️</span>
+                  <span style={styles.infoText}>Time Limit: {formatTimeLimit(quiz.time_limit)}</span>
+                </div>
+                <div style={styles.infoItem}>
+                  <span style={styles.infoIcon}>⭐</span>
+                  <span style={styles.infoText}>Points: {quiz.points}</span>
+                </div>
+                <div style={styles.infoItem}>
+                  <span style={styles.infoIcon}>📊</span>
+                  <span style={styles.infoText}>Options: {quiz.options?.length || 0}</span>
+                </div>
+              </div>
+            </div>
+            <div style={styles.cardFooter}>
+              {quiz.attempted ? (
+                <button
+                  style={{ 
+                    ...styles.primaryButton, 
+                    backgroundColor: '#94a3b8',
+                    cursor: 'not-allowed'
+                  }}
+                  disabled
+                >
+                  Already Attempted
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleQuizAttempt(quiz.id)}
+                  style={styles.primaryButton}
+                >
+                  Attempt Quiz
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+);
     const renderShortAnswer = () => (
       <div>
         <h3 style={styles.sectionTitle}>📋 Short Answer Questions</h3>
@@ -252,6 +280,10 @@ const ClassResources = () => {
                     {question.question_text || 'No question text'}
                   </p>
                   <div style={styles.cardInfo}>
+                    <div style={styles.infoItem}>
+                      <span style={styles.infoIcon}>📅</span>
+                      <span style={styles.infoText}>Due: {formatDate(question.due_date)}</span>
+                    </div>
                     <div style={styles.infoItem}>
                       <span style={styles.infoIcon}>⭐</span>
                       <span style={styles.infoText}>Points: {question.points}</span>
@@ -293,6 +325,10 @@ const ClassResources = () => {
                     {question.question_text || 'No question text'}
                   </p>
                   <div style={styles.cardInfo}>
+                    <div style={styles.infoItem}>
+                      <span style={styles.infoIcon}>📅</span>
+                      <span style={styles.infoText}>Due: {formatDate(question.due_date)}</span>
+                    </div>
                     <div style={styles.infoItem}>
                       <span style={styles.infoIcon}>⭐</span>
                       <span style={styles.infoText}>Points: {question.points}</span>
@@ -421,289 +457,289 @@ const ClassResources = () => {
         </div>
       </div>
     );
-  };
+};
 
-  const styles = {
-    container: {
-      maxWidth: '1200px',
-      margin: '0 auto',
-      padding: '2rem',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-      backgroundColor: '#f8fafc',
-      minHeight: '100vh',
-    },
-    header: {
-      textAlign: 'center',
-      marginBottom: '2rem',
-      position: 'relative',
-    },
-    backButton: {
-      position: 'absolute',
-      left: '0',
-      top: '0',
-      padding: '0.75rem 1.5rem',
-      backgroundColor: '#fff',
-      color: '#667eea',
-      border: '2px solid #667eea',
-      borderRadius: '12px',
-      fontSize: '0.95rem',
-      fontWeight: '600',
-      cursor: 'pointer',
-      transition: 'all 0.3s ease',
-      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-    },
-    title: {
-      fontSize: '2.5rem',
-      fontWeight: '700',
-      color: '#1e293b',
-      marginBottom: '0.5rem',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      WebkitBackgroundClip: 'text',
-      WebkitTextFillColor: 'transparent',
-    },
-    subtitle: {
-      fontSize: '1.1rem',
-      color: '#64748b',
-      margin: '0',
-    },
-    loadingContainer: {
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '400px',
-    },
-    spinner: {
-      width: '48px',
-      height: '48px',
-      border: '4px solid #e2e8f0',
-      borderTop: '4px solid #667eea',
-      borderRadius: '50%',
-      animation: 'spin 1s linear infinite',
-    },
-    loadingText: {
-      marginTop: '1rem',
-      color: '#64748b',
-      fontSize: '1.1rem',
-    },
-    errorContainer: {
-      textAlign: 'center',
-      padding: '3rem',
-      backgroundColor: '#fff',
-      borderRadius: '16px',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-    },
-    errorIcon: {
-      fontSize: '3rem',
-      marginBottom: '1rem',
-    },
-    errorTitle: {
-      color: '#ef4444',
-      marginBottom: '0.5rem',
-    },
-    errorMessage: {
-      color: '#64748b',
-      marginBottom: '1.5rem',
-    },
-    retryButton: {
-      padding: '0.75rem 2rem',
-      backgroundColor: '#667eea',
-      color: '#fff',
-      border: 'none',
-      borderRadius: '12px',
-      fontSize: '1rem',
-      fontWeight: '600',
-      cursor: 'pointer',
-      transition: 'all 0.3s ease',
-    },
-    tabContainer: {
-      display: 'flex',
-      flexWrap: 'wrap',
-      gap: '0.5rem',
-      marginBottom: '2rem',
-      backgroundColor: '#fff',
-      padding: '1rem',
-      borderRadius: '16px',
-      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-    },
-    tab: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '0.5rem',
-      padding: '0.75rem 1rem',
-      backgroundColor: 'transparent',
-      color: '#64748b',
-      border: 'none',
-      borderRadius: '10px',
-      fontSize: '0.9rem',
-      fontWeight: '500',
-      cursor: 'pointer',
-      transition: 'all 0.3s ease',
-    },
-    activeTab: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '0.5rem',
-      padding: '0.75rem 1rem',
-      backgroundColor: '#667eea',
-      color: '#fff',
-      border: 'none',
-      borderRadius: '10px',
-      fontSize: '0.9rem',
-      fontWeight: '600',
-      cursor: 'pointer',
-      transition: 'all 0.3s ease',
-      boxShadow: '0 2px 4px rgba(102, 126, 234, 0.3)',
-    },
-    tabIcon: {
-      fontSize: '1.1rem',
-    },
-    tabLabel: {
-      whiteSpace: 'nowrap',
-    },
-    tabCount: {
-      backgroundColor: 'rgba(255, 255, 255, 0.3)',
-      color: '#fff',
-      padding: '0.2rem 0.5rem',
-      borderRadius: '10px',
-      fontSize: '0.75rem',
-      fontWeight: '600',
-    },
-    content: {
-      minHeight: '400px',
-    },
-    sectionTitle: {
-      fontSize: '1.5rem',
-      fontWeight: '600',
-      color: '#1e293b',
-      marginBottom: '1.5rem',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '0.5rem',
-    },
-    grid: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
-      gap: '1.5rem',
-    },
-    card: {
-      backgroundColor: '#fff',
-      borderRadius: '16px',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-      overflow: 'hidden',
-      transition: 'all 0.3s ease',
-      border: '1px solid #e2e8f0',
-    },
-    cardHeader: {
-      padding: '1.5rem',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      color: '#fff',
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    cardTitle: {
-      fontSize: '1.1rem',
-      fontWeight: '600',
-      margin: '0',
-    },
-    badgeContainer: {
-      display: 'flex',
-      gap: '0.5rem',
-    },
-    successBadge: {
-      backgroundColor: 'rgba(34, 197, 94, 0.9)',
-      color: '#fff',
-      padding: '0.25rem 0.75rem',
-      borderRadius: '20px',
-      fontSize: '0.75rem',
-      fontWeight: '600',
-    },
-    warningBadge: {
-      backgroundColor: 'rgba(251, 191, 36, 0.9)',
-      color: '#fff',
-      padding: '0.25rem 0.75rem',
-      borderRadius: '20px',
-      fontSize: '0.75rem',
-      fontWeight: '600',
-    },
-    infoBadge: {
-      backgroundColor: 'rgba(59, 130, 246, 0.9)',
-      color: '#fff',
-      padding: '0.25rem 0.75rem',
-      borderRadius: '20px',
-      fontSize: '0.75rem',
-      fontWeight: '600',
-    },
-    cardBody: {
-      padding: '1.5rem',
-    },
-    cardDescription: {
-      color: '#64748b',
-      fontSize: '0.95rem',
-      marginBottom: '1rem',
-      lineHeight: '1.5',
-    },
-    cardInfo: {
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '0.5rem',
-    },
-    infoItem: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '0.5rem',
-    },
-    infoIcon: {
-      fontSize: '1rem',
-    },
-    infoText: {
-      fontSize: '0.9rem',
-      color: '#64748b',
-    },
-    cardFooter: {
-      padding: '1.5rem',
-      backgroundColor: '#f8fafc',
-      borderTop: '1px solid #e2e8f0',
-    },
-    primaryButton: {
-      width: '100%',
-      padding: '0.75rem 1.5rem',
-      backgroundColor: '#667eea',
-      color: '#fff',
-      border: 'none',
-      borderRadius: '12px',
-      fontSize: '1rem',
-      fontWeight: '600',
-      cursor: 'pointer',
-      transition: 'all 0.3s ease',
-      boxShadow: '0 2px 4px rgba(102, 126, 234, 0.3)',
-    },
-    emptyState: {
-      textAlign: 'center',
-      padding: '4rem 2rem',
-      backgroundColor: '#fff',
-      borderRadius: '16px',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-    },
-    emptyIcon: {
-      fontSize: '4rem',
-      marginBottom: '1rem',
-    },
-    emptyText: {
-      color: '#64748b',
-      fontSize: '1.1rem',
-    },
-  };
+const styles = {
+  container: {
+    maxWidth: '1200px',
+    margin: '0 auto',
+    padding: '2rem',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    backgroundColor: '#f8fafc',
+    minHeight: '100vh',
+  },
+  header: {
+    textAlign: 'center',
+    marginBottom: '2rem',
+    position: 'relative',
+  },
+  backButton: {
+    position: 'absolute',
+    left: '0',
+    top: '0',
+    padding: '0.75rem 1.5rem',
+    backgroundColor: '#fff',
+    color: '#667eea',
+    border: '2px solid #667eea',
+    borderRadius: '12px',
+    fontSize: '0.95rem',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+  },
+  title: {
+    fontSize: '2.5rem',
+    fontWeight: '700',
+    color: '#1e293b',
+    marginBottom: '0.5rem',
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+  },
+  subtitle: {
+    fontSize: '1.1rem',
+    color: '#64748b',
+    margin: '0',
+  },
+  loadingContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: '400px',
+  },
+  spinner: {
+    width: '48px',
+    height: '48px',
+    border: '4px solid #e2e8f0',
+    borderTop: '4px solid #667eea',
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite',
+  },
+  loadingText: {
+    marginTop: '1rem',
+    color: '#64748b',
+    fontSize: '1.1rem',
+  },
+  errorContainer: {
+    textAlign: 'center',
+    padding: '3rem',
+    backgroundColor: '#fff',
+    borderRadius: '16px',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+  },
+  errorIcon: {
+    fontSize: '3rem',
+    marginBottom: '1rem',
+  },
+  errorTitle: {
+    color: '#ef4444',
+    marginBottom: '0.5rem',
+  },
+  errorMessage: {
+    color: '#64748b',
+    marginBottom: '1.5rem',
+  },
+  retryButton: {
+    padding: '0.75rem 2rem',
+    backgroundColor: '#667eea',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '12px',
+    fontSize: '1rem',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+  },
+  tabContainer: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '0.5rem',
+    marginBottom: '2rem',
+    backgroundColor: '#fff',
+    padding: '1rem',
+    borderRadius: '16px',
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+  },
+  tab: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    padding: '0.75rem 1rem',
+    backgroundColor: 'transparent',
+    color: '#64748b',
+    border: 'none',
+    borderRadius: '10px',
+    fontSize: '0.9rem',
+    fontWeight: '500',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+  },
+  activeTab: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    padding: '0.75rem 1rem',
+    backgroundColor: '#667eea',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '10px',
+    fontSize: '0.9rem',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    boxShadow: '0 2px 4px rgba(102, 126, 234, 0.3)',
+  },
+  tabIcon: {
+    fontSize: '1.1rem',
+  },
+  tabLabel: {
+    whiteSpace: 'nowrap',
+  },
+  tabCount: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    color: '#fff',
+    padding: '0.2rem 0.5rem',
+    borderRadius: '10px',
+    fontSize: '0.75rem',
+    fontWeight: '600',
+  },
+  content: {
+    minHeight: '400px',
+  },
+  sectionTitle: {
+    fontSize: '1.5rem',
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: '1.5rem',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+  },
+  grid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+    gap: '1.5rem',
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: '16px',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+    overflow: 'hidden',
+    transition: 'all 0.3s ease',
+    border: '1px solid #e2e8f0',
+  },
+  cardHeader: {
+    padding: '1.5rem',
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    color: '#fff',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cardTitle: {
+    fontSize: '1.1rem',
+    fontWeight: '600',
+    margin: '0',
+  },
+  badgeContainer: {
+    display: 'flex',
+    gap: '0.5rem',
+  },
+  successBadge: {
+    backgroundColor: 'rgba(34, 197, 94, 0.9)',
+    color: '#fff',
+    padding: '0.25rem 0.75rem',
+    borderRadius: '20px',
+    fontSize: '0.75rem',
+    fontWeight: '600',
+  },
+  warningBadge: {
+    backgroundColor: 'rgba(251, 191, 36, 0.9)',
+    color: '#fff',
+    padding: '0.25rem 0.75rem',
+    borderRadius: '20px',
+    fontSize: '0.75rem',
+    fontWeight: '600',
+  },
+  infoBadge: {
+    backgroundColor: 'rgba(59, 130, 246, 0.9)',
+    color: '#fff',
+    padding: '0.25rem 0.75rem',
+    borderRadius: '20px',
+    fontSize: '0.75rem',
+    fontWeight: '600',
+  },
+  cardBody: {
+    padding: '1.5rem',
+  },
+  cardDescription: {
+    color: '#64748b',
+    fontSize: '0.95rem',
+    marginBottom: '1rem',
+    lineHeight: '1.5',
+  },
+  cardInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.5rem',
+  },
+  infoItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+  },
+  infoIcon: {
+    fontSize: '1rem',
+  },
+  infoText: {
+    fontSize: '0.9rem',
+    color: '#64748b',
+  },
+  cardFooter: {
+    padding: '1.5rem',
+    backgroundColor: '#f8fafc',
+    borderTop: '1px solid #e2e8f0',
+  },
+  primaryButton: {
+    width: '100%',
+    padding: '0.75rem 1.5rem',
+    backgroundColor: '#667eea',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '12px',
+    fontSize: '1rem',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    boxShadow: '0 2px 4px rgba(102, 126, 234, 0.3)',
+  },
+  emptyState: {
+    textAlign: 'center',
+    padding: '4rem 2rem',
+    backgroundColor: '#fff',
+    borderRadius: '16px',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+  },
+  emptyIcon: {
+    fontSize: '4rem',
+    marginBottom: '1rem',
+  },
+  emptyText: {
+    color: '#64748b',
+    fontSize: '1.1rem',
+  },
+};
 
-  // Add CSS animation for spinner
-  const styleSheet = document.createElement('style');
-  styleSheet.textContent = `
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-  `;
-  document.head.appendChild(styleSheet);
+// Add CSS animation for spinner
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`;
+document.head.appendChild(styleSheet);
 
-  export default ClassResources;
+export default ClassResources;

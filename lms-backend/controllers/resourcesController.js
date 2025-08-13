@@ -14,8 +14,39 @@ import pool from '../config/db.js';
  * @param {import('express').Response} res
  */
 const addQuestion = async (req, res) => {
-  const { class_id, question_text, question_type, points, options } = req.body;
+  const { 
+    class_id, 
+    question_text, 
+    question_type, 
+    points, 
+    options, 
+    due_date,  // New field for due date
+    time_limit // New field for time limit (in minutes)
+  } = req.body;
   const teacherId = req.body.userId;
+
+  // Validate due_date if provided
+  if (due_date && isNaN(new Date(due_date).getTime())) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid due date format'
+    });
+  }
+
+  // Validate time_limit for multiple choice questions
+  if (question_type === 'multiple_choice' && time_limit === undefined) {
+    return res.status(400).json({
+      success: false,
+      message: 'Time limit is required for multiple choice questions'
+    });
+  }
+
+  if (question_type === 'multiple_choice' && (isNaN(time_limit) || time_limit <= 0)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Time limit must be a positive number (minutes)'
+    });
+  }
 
   try {
     await pool.query('START TRANSACTION');
@@ -32,13 +63,19 @@ const addQuestion = async (req, res) => {
       });
     }
 
-    // Insert the question
+    // Insert the question with due_date
     const INSERT_QUESTION_QUERY = `
-      INSERT INTO questions (class_id, question_text, question_type, points)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO questions 
+        (class_id, question_text, question_type, points, due_date, time_limit)
+      VALUES (?, ?, ?, ?, ?, ?)
     `;
     const [questionResult] = await pool.query(INSERT_QUESTION_QUERY, [
-      class_id, question_text, question_type, points || 1
+      class_id, 
+      question_text, 
+      question_type, 
+      points || 1,
+      due_date || null,  // Store due_date (null if not provided)
+      question_type === 'multiple_choice' ? time_limit : null  // Only store time_limit for MC questions
     ]);
 
     const questionId = questionResult.insertId;
@@ -65,7 +102,9 @@ const addQuestion = async (req, res) => {
         class_id,
         question_text,
         question_type,
-        points: points || 1
+        points: points || 1,
+        due_date: due_date || null,
+        time_limit: question_type === 'multiple_choice' ? time_limit : null
       }
     });
   } catch (error) {
@@ -77,7 +116,6 @@ const addQuestion = async (req, res) => {
     });
   }
 };
-
 /**
  * Create a new assignment
  * @param {import('express').Request} req
@@ -303,9 +341,20 @@ const getClassResource = async (req, res) => {
 
     // Get all resources in parallel
     const [questions] = await pool.query(
-      'SELECT * FROM questions WHERE class_id = ?', 
+      'SELECT id, class_id, question_text, question_type, points, due_date, time_limit FROM questions WHERE class_id = ?', 
       [class_id]
     );
+    
+    // For multiple choice questions, fetch their options
+    const mcQuestions = questions.filter(q => q.question_type === 'multiple_choice');
+    for (const question of mcQuestions) {
+      const [options] = await pool.query(
+        'SELECT id, option_text, is_correct FROM question_options WHERE question_id = ?',
+        [question.id]
+      );
+      question.options = options;
+    }
+
     const [assignments] = await pool.query(
       'SELECT * FROM assignments WHERE class_id = ?', 
       [class_id]
@@ -319,7 +368,7 @@ const getClassResource = async (req, res) => {
       [class_id]
     );
 
-    // Get questions for each assignment
+    // Get questions for each assignment (including the new fields)
     for (const assignment of assignments) {
       const [assignmentQuestions] = await pool.query(`
         SELECT q.*, aq.points as assignment_points
@@ -327,6 +376,18 @@ const getClassResource = async (req, res) => {
         JOIN questions q ON aq.question_id = q.id
         WHERE aq.assignment_id = ?
       `, [assignment.id]);
+      
+      // Add options to multiple choice questions in assignments
+      for (const question of assignmentQuestions) {
+        if (question.question_type === 'multiple_choice') {
+          const [options] = await pool.query(
+            'SELECT id, option_text, is_correct FROM question_options WHERE question_id = ?',
+            [question.id]
+          );
+          question.options = options;
+        }
+      }
+      
       assignment.questions = assignmentQuestions;
     }
 
@@ -347,11 +408,161 @@ const getClassResource = async (req, res) => {
     });
   }
 };
+const deleteQuestion = async (req, res) => {
+  const { question_id } = req.params;
+  const teacherId = req.body.userId;
+
+  try {
+    // Get class_id of this question to verify ownership
+    const [result] = await pool.query(
+      'SELECT class_id FROM questions WHERE id = ?',
+      [question_id]
+    );
+
+    if (result.length === 0) {
+      return res.status(404).json({ success: false, message: 'Question not found' });
+    }
+
+    const class_id = result[0].class_id;
+
+    // Verify teacher owns the class
+    const [verify] = await pool.query(
+      'SELECT id FROM classes WHERE id = ? AND teacher_id = ?',
+      [class_id, teacherId]
+    );
+    if (verify.length === 0) {
+      return res.status(403).json({ success: false, message: 'Not authorized to delete this question' });
+    }
+
+    // Delete the question (cascade deletes options etc. if FK constraints are set)
+    await pool.query('DELETE FROM questions WHERE id = ?', [question_id]);
+
+    res.json({ success: true, message: 'Question deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting question:', error);
+    res.status(500).json({ success: false, message: 'Error deleting question' });
+  }
+};
+const deleteAssignment = async (req, res) => {
+  const { assignment_id } = req.params;
+  const teacherId = req.body.userId;
+
+  try {
+    // Get class_id of this assignment to verify ownership
+    const [result] = await pool.query(
+      'SELECT class_id FROM assignments WHERE id = ?',
+      [assignment_id]
+    );
+
+    if (result.length === 0) {
+      return res.status(404).json({ success: false, message: 'Assignment not found' });
+    }
+
+    const class_id = result[0].class_id;
+
+    // Verify teacher owns the class
+    const [verify] = await pool.query(
+      'SELECT id FROM classes WHERE id = ? AND teacher_id = ?',
+      [class_id, teacherId]
+    );
+    if (verify.length === 0) {
+      return res.status(403).json({ success: false, message: 'Not authorized to delete this assignment' });
+    }
+
+    // Delete assignment (cascades assignment_questions, submissions, etc.)
+    await pool.query('DELETE FROM assignments WHERE id = ?', [assignment_id]);
+
+    res.json({ success: true, message: 'Assignment deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting assignment:', error);
+    res.status(500).json({ success: false, message: 'Error deleting assignment' });
+  }
+};
+
+const deletePastPaper = async (req, res) => {
+  const { past_paper_id } = req.body;
+  const teacherId = req.body.userId;
+
+  console.log('Received past_paper_id:', past_paper_id);
+  console.log('Teacher ID:', teacherId);
+
+  try {
+    // Get class_id of this past paper to verify ownership
+    const [result] = await pool.query(
+      'SELECT class_id FROM past_papers WHERE id = ?',
+      [past_paper_id]
+    );
+
+    if (result.length === 0) {
+      return res.status(404).json({ success: false, message: 'Past paper not found' });
+    }
+
+    const class_id = result[0].class_id;
+
+    // Verify teacher owns the class
+    const [verify] = await pool.query(
+      'SELECT id FROM classes WHERE id = ? AND teacher_id = ?',
+      [class_id, teacherId]
+    );
+
+    if (verify.length === 0) {
+      return res.status(403).json({ success: false, message: 'Not authorized to delete this past paper' });
+    }
+
+    // Delete the past paper
+    await pool.query('DELETE FROM past_papers WHERE id = ?', [past_paper_id]);
+
+    res.json({ success: true, message: 'Past paper deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting past paper:', error);
+    res.status(500).json({ success: false, message: 'Error deleting past paper' });
+  }
+};
+const deleteVideo = async (req, res) => {
+  const { video_id } = req.params;
+  const teacherId = req.body.userId;
+
+  try {
+    // Get class_id of this video to verify ownership
+    const [result] = await pool.query(
+      'SELECT class_id FROM videos WHERE id = ?',
+      [video_id]
+    );
+
+    if (result.length === 0) {
+      return res.status(404).json({ success: false, message: 'Video not found' });
+    }
+
+    const class_id = result[0].class_id;
+
+    // Verify teacher owns the class
+    const [verify] = await pool.query(
+      'SELECT id FROM classes WHERE id = ? AND teacher_id = ?',
+      [class_id, teacherId]
+    );
+    if (verify.length === 0) {
+      return res.status(403).json({ success: false, message: 'Not authorized to delete this video' });
+    }
+
+    await pool.query('DELETE FROM videos WHERE id = ?', [video_id]);
+
+    res.json({ success: true, message: 'Video deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting video:', error);
+    res.status(500).json({ success: false, message: 'Error deleting video' });
+  }
+};
 
 export {
   addQuestion,
   createAssignment,
   addPastPaper,
   addVideo,
-  getClassResource
+  getClassResource,
+  deleteQuestion,
+  deleteAssignment,
+  deletePastPaper,
+  deleteVideo
+  
+
 };

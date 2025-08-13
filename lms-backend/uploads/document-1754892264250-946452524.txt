@@ -1,0 +1,1088 @@
+import * as XLSX from 'xlsx';
+
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  CircularProgress,
+  Container,
+  Divider,
+  Fade,
+  FormControl,
+  Grid,
+  IconButton,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  Tooltip,
+  Typography,
+  alpha,
+  useTheme
+} from '@mui/material';
+import {
+  Analytics,
+  Category,
+  DateRange,
+  FileDownload,
+  Inventory,
+  OpenInNew,
+  Refresh,
+  Schedule,
+  Store,
+  Timeline,
+  TrendingDown,
+  TrendingUp
+} from '@mui/icons-material';
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  XAxis,
+  YAxis
+} from 'recharts';
+import React, { useEffect, useState } from 'react';
+
+import { useAuth } from '@/context/AuthContext';
+import { webScrapeService } from '../services/webScrapeService';
+
+// Time filter options
+const TIME_FILTERS = [
+  { value: '10m', label: '10 Minutes', minutes: 10 },
+  { value: '30m', label: '30 Minutes', minutes: 30 },
+  { value: '1h', label: '1 Hour', minutes: 60 },
+  { value: '5h', label: '5 Hours', minutes: 300 },
+  { value: '1d', label: '1 Day', minutes: 1440 },
+  { value: '3d', label: '3 Days', minutes: 4320 },
+  { value: '1w', label: '1 Week', minutes: 10080 },
+  { value: '1M', label: '1 Month', minutes: 43200 },
+  { value: '3M', label: '3 Months', minutes: 129600 },
+  { value: '1y', label: '1 Year', minutes: 525600 },
+  { value: 'all', label: 'All Time', minutes: Infinity }
+];
+
+const Insights: React.FC = () => {
+  const theme = useTheme();
+  const { token } = useAuth();
+  const [pricingData, setPricingData] = useState<webScrapeService.PricingData[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<string>('');
+  const [selectedShop, setSelectedShop] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedTimeFilter, setSelectedTimeFilter] = useState<string>('1w'); // Default to 1 week
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await webScrapeService.getAllProducts(token);
+        setPricingData(response.pricing_data);
+      } catch (err) {
+        setError(err instanceof webScrapeService.WebScrapeError 
+          ? err.message 
+          : 'Failed to fetch product data');
+        console.error('Error fetching product data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [token]);
+
+  // Filter data based on time range
+  const filterDataByTime = (data: any[], timeFilter: string) => {
+    if (timeFilter === 'all') return data;
+    
+    const filterConfig = TIME_FILTERS.find(f => f.value === timeFilter);
+    if (!filterConfig) return data;
+    
+    const cutoffTime = new Date();
+    cutoffTime.setMinutes(cutoffTime.getMinutes() - filterConfig.minutes);
+    
+    return data.filter(item => new Date(item.fullDate || item.created_at) >= cutoffTime);
+  };
+
+  // Get unique shops, categories, and products
+  const shops = Array.from(new Set(pricingData.map(item => item.shop_name))).filter(Boolean);
+  const categories = Array.from(new Set(pricingData.map(item => item.category_name))).filter(Boolean);
+  
+  // Get products based on selected shop and category
+  const filteredProducts = pricingData
+    .filter(item => 
+      (selectedShop === '' || item.shop_name === selectedShop) &&
+      (selectedCategory === '' || item.category_name === selectedCategory)
+    )
+    .flatMap(item => item.pricing_data.map(product => product.product));
+
+  const uniqueProducts = Array.from(new Set(filteredProducts));
+
+  // Get price history for selected product with time filtering
+  const allPriceHistory = pricingData
+    .filter(item => 
+      (selectedShop === '' || item.shop_name === selectedShop) &&
+      (selectedCategory === '' || item.category_name === selectedCategory)
+    )
+    .flatMap(item => 
+      item.pricing_data
+        .filter(product => product.product === selectedProduct)
+        .map(product => ({
+          ...product,
+          date: new Date(item.created_at).toLocaleDateString(),
+          time: new Date(item.created_at).toLocaleTimeString([], { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          }),
+          fullDate: item.created_at,
+          price: Number(product.price) || 0,
+          dateTime: new Date(item.created_at).toLocaleString()
+        }))
+    )
+    .sort((a, b) => new Date(a.fullDate).getTime() - new Date(b.fullDate).getTime());
+
+  const priceHistory = filterDataByTime(allPriceHistory, selectedTimeFilter);
+
+  // Get stock status history with time filtering
+  const allStockHistory = pricingData
+    .filter(item => 
+      (selectedShop === '' || item.shop_name === selectedShop) &&
+      (selectedCategory === '' || item.category_name === selectedCategory)
+    )
+    .flatMap(item => 
+      item.pricing_data
+        .filter(product => product.product === selectedProduct)
+        .map(product => ({
+          date: new Date(item.created_at).toLocaleDateString(),
+          time: new Date(item.created_at).toLocaleTimeString([], { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          }),
+          inStock: product.stock_status ? 1 : 0,
+          fullDate: item.created_at,
+          stock_status: product.stock_status,
+          dateTime: new Date(item.created_at).toLocaleString()
+        }))
+    )
+    .sort((a, b) => new Date(a.fullDate).getTime() - new Date(b.fullDate).getTime());
+
+  const stockHistory = filterDataByTime(allStockHistory, selectedTimeFilter);
+
+  // Get current product details
+  const currentProductDetails = allPriceHistory.length > 0 
+    ? pricingData.find(item => 
+        item.pricing_data.some(p => p.product === selectedProduct)
+      )
+    : null;
+
+  // Calculate price trend
+  const priceTrend = priceHistory.length >= 2 
+    ? priceHistory[priceHistory.length - 1].price - priceHistory[0].price
+    : 0;
+
+  // Format X-axis based on time filter
+  const formatXAxisLabel = (dateTime: string) => {
+    const date = new Date(dateTime);
+    const timeFilter = TIME_FILTERS.find(f => f.value === selectedTimeFilter);
+    
+    if (!timeFilter) return date.toLocaleDateString();
+    
+    // For short time periods, show time
+    if (timeFilter.minutes <= 60) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    // For medium time periods, show date + time
+    else if (timeFilter.minutes <= 1440) {
+      return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    }
+    // For longer periods, show just date
+    else {
+      return date.toLocaleDateString();
+    }
+  };
+
+  const refreshData = async () => {
+    setLoading(true);
+    try {
+      const response = await webScrapeService.getAllProducts(token);
+      setPricingData(response.pricing_data);
+    } catch (err) {
+      setError('Failed to refresh data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const downloadExcel = () => {
+    if (!selectedProduct || allPriceHistory.length === 0) return;
+
+    // Prepare data for Excel with time filter info
+    const excelData = priceHistory.map((item, index) => ({
+      'Date & Time': item.dateTime,
+      'Product': selectedProduct,
+      'Price': item.price,
+      'Currency': currentProductDetails?.currency || '',
+      'Stock Status': item.stock_status ? 'In Stock' : 'Out of Stock',
+      'Shop': currentProductDetails?.shop_name || '',
+      'Category': currentProductDetails?.category_name || '',
+      'Region': currentProductDetails?.region || '',
+      'Source URL': currentProductDetails?.url || ''
+    }));
+
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(excelData);
+
+    // Set column widths
+    const colWidths = [
+      { wch: 20 }, // Date & Time
+      { wch: 30 }, // Product
+      { wch: 10 }, // Price
+      { wch: 8 },  // Currency
+      { wch: 12 }, // Stock Status
+      { wch: 20 }, // Shop
+      { wch: 20 }, // Category
+      { wch: 15 }, // Region
+      { wch: 50 }  // Source URL
+    ];
+    ws['!cols'] = colWidths;
+
+    // Add summary sheet with time filter info
+    const selectedTimeFilterLabel = TIME_FILTERS.find(f => f.value === selectedTimeFilter)?.label || 'All Time';
+    const summaryData = [
+      { Metric: 'Product Name', Value: selectedProduct },
+      { Metric: 'Shop', Value: currentProductDetails?.shop_name || 'N/A' },
+      { Metric: 'Category', Value: currentProductDetails?.category_name || 'N/A' },
+      { Metric: 'Region', Value: currentProductDetails?.region || 'N/A' },
+      { Metric: 'Time Filter', Value: selectedTimeFilterLabel },
+      { Metric: 'Current Price', Value: `${priceHistory[priceHistory.length - 1]?.price || 0} ${currentProductDetails?.currency || ''}` },
+      { Metric: 'Price Trend', Value: `${priceTrend >= 0 ? '+' : ''}${priceTrend.toFixed(2)} ${currentProductDetails?.currency || ''}` },
+      { Metric: 'Current Stock Status', Value: priceHistory[priceHistory.length - 1]?.stock_status ? 'In Stock' : 'Out of Stock' },
+      { Metric: 'Data Points (Filtered)', Value: priceHistory.length },
+      { Metric: 'Total Data Points', Value: allPriceHistory.length },
+      { Metric: 'Date Range', Value: priceHistory.length > 1 ? `${priceHistory[0].dateTime} to ${priceHistory[priceHistory.length - 1].dateTime}` : priceHistory[0]?.dateTime || 'N/A' },
+      { Metric: 'Last Updated', Value: new Date(currentProductDetails?.created_at || '').toLocaleString() },
+      { Metric: 'Source URL', Value: currentProductDetails?.url || 'N/A' }
+    ];
+
+    const summaryWs = XLSX.utils.json_to_sheet(summaryData);
+    summaryWs['!cols'] = [{ wch: 20 }, { wch: 50 }];
+
+    // Add worksheets to workbook
+    XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
+    XLSX.utils.book_append_sheet(wb, ws, 'Price History');
+
+    // Generate filename
+    const fileName = `${selectedProduct.replace(/[^a-z0-9]/gi, '_')}_${selectedTimeFilterLabel.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    // Download file
+    XLSX.writeFile(wb, fileName);
+  };
+
+  if (loading) {
+    return (
+      <Container maxWidth="xl">
+        <Box 
+          display="flex" 
+          flexDirection="column" 
+          justifyContent="center" 
+          alignItems="center" 
+          minHeight="60vh"
+          sx={{
+            background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(theme.palette.secondary.main, 0.1)} 100%)`,
+            borderRadius: 4
+          }}
+        >
+          <CircularProgress size={60} thickness={4} />
+          <Typography variant="h6" sx={{ mt: 2, color: theme.palette.text.secondary }}>
+            Loading insights...
+          </Typography>
+        </Box>
+      </Container>
+    );
+  }
+
+  if (error) {
+    return (
+      <Container maxWidth="xl">
+        <Box sx={{ py: 4 }}>
+          <Alert 
+            severity="error" 
+            sx={{ 
+              borderRadius: 2,
+              '& .MuiAlert-icon': { fontSize: '2rem' }
+            }}
+          >
+            <Typography variant="h6">{error}</Typography>
+          </Alert>
+        </Box>
+      </Container>
+    );
+  }
+
+  return (
+    <Container maxWidth="xl">
+      <Box sx={{ py: 4 }}>
+        {/* Header Section */}
+        <Box sx={{ mb: 6 }}>
+          <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+            <Box display="flex" alignItems="center" gap={2}>
+              <Box 
+                sx={{
+                  p: 1.5,
+                  borderRadius: 2,
+                  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
+                  color: 'white'
+                }}
+              >
+                <Analytics fontSize="large" />
+              </Box>
+              <Box>
+                <Typography 
+                  variant="h3" 
+                  fontWeight="bold"
+                  sx={{
+                    background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                    backgroundClip: 'text',
+                    WebkitBackgroundClip: 'text',
+                    color: 'transparent'
+                  }}
+                >
+                  Product Insights
+                </Typography>
+                <Typography variant="subtitle1" color="text.secondary">
+                  Track pricing trends and stock availability across multiple stores
+                </Typography>
+              </Box>
+            </Box>
+            <Tooltip title="Refresh Data">
+              <IconButton 
+                onClick={refreshData}
+                disabled={loading}
+                sx={{ 
+                  bgcolor: alpha(theme.palette.primary.main, 0.1),
+                  '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.2) }
+                }}
+              >
+                <Refresh />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
+
+        {/* Filter Section */}
+        <Card 
+          elevation={0}
+          sx={{ 
+            mb: 4, 
+            border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+            borderRadius: 3,
+            background: `linear-gradient(135deg, ${alpha(theme.palette.background.paper, 0.8)} 0%, ${alpha(theme.palette.background.default, 0.4)} 100%)`,
+            backdropFilter: 'blur(10px)'
+          }}
+        >
+          <CardContent sx={{ p: 4 }}>
+            <Typography variant="h6" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Timeline color="primary" />
+              Filter Products
+            </Typography>
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={3}>
+                <FormControl fullWidth variant="outlined">
+                  <InputLabel>Shop</InputLabel>
+                  <Select
+                    value={selectedShop}
+                    onChange={(e) => {
+                      setSelectedShop(e.target.value);
+                      setSelectedCategory('');
+                      setSelectedProduct('');
+                    }}
+                    label="Shop"
+                    sx={{ borderRadius: 2 }}
+                  >
+                    <MenuItem value="">
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Store fontSize="small" />
+                        All Shops
+                      </Box>
+                    </MenuItem>
+                    {shops.map(shop => (
+                      <MenuItem key={shop} value={shop}>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <Store fontSize="small" />
+                          {shop}
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={12} md={3}>
+                <FormControl fullWidth variant="outlined">
+                  <InputLabel>Category</InputLabel>
+                  <Select
+                    value={selectedCategory}
+                    onChange={(e) => {
+                      setSelectedCategory(e.target.value);
+                      setSelectedProduct('');
+                    }}
+                    label="Category"
+                    sx={{ borderRadius: 2 }}
+                  >
+                    <MenuItem value="">
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Category fontSize="small" />
+                        All Categories
+                      </Box>
+                    </MenuItem>
+                    {categories
+                      .filter(cat => 
+                        selectedShop === '' || 
+                        pricingData.some(item => 
+                          item.shop_name === selectedShop && 
+                          item.category_name === cat
+                        )
+                      )
+                      .map(category => (
+                        <MenuItem key={category} value={category}>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Category fontSize="small" />
+                            {category}
+                          </Box>
+                        </MenuItem>
+                      ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={12} md={3}>
+                <FormControl fullWidth variant="outlined" disabled={uniqueProducts.length === 0}>
+                  <InputLabel>Product</InputLabel>
+                  <Select
+                    value={selectedProduct}
+                    onChange={(e) => setSelectedProduct(e.target.value)}
+                    label="Product"
+                    sx={{ borderRadius: 2 }}
+                  >
+                    <MenuItem value="">Select a product</MenuItem>
+                    {uniqueProducts.map(product => (
+                      <MenuItem key={product} value={product}>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <Inventory fontSize="small" />
+                          {product}
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* Time Filter */}
+              <Grid item xs={12} md={3}>
+                <FormControl fullWidth variant="outlined">
+                  <InputLabel>Time Range</InputLabel>
+                  <Select
+                    value={selectedTimeFilter}
+                    onChange={(e) => setSelectedTimeFilter(e.target.value)}
+                    label="Time Range"
+                    sx={{ borderRadius: 2 }}
+                  >
+                    {TIME_FILTERS.map(filter => (
+                      <MenuItem key={filter.value} value={filter.value}>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <Schedule fontSize="small" />
+                          {filter.label}
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+            
+            {/* Active Filters */}
+            {(selectedShop || selectedCategory || selectedProduct || selectedTimeFilter !== '1w') && (
+              <Box sx={{ mt: 3, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mr: 1, alignSelf: 'center' }}>
+                  Active filters:
+                </Typography>
+                {selectedShop && (
+                  <Chip 
+                    label={`Shop: ${selectedShop}`} 
+                    onDelete={() => {
+                      setSelectedShop('');
+                      setSelectedCategory('');
+                      setSelectedProduct('');
+                    }}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                  />
+                )}
+                {selectedCategory && (
+                  <Chip 
+                    label={`Category: ${selectedCategory}`} 
+                    onDelete={() => {
+                      setSelectedCategory('');
+                      setSelectedProduct('');
+                    }}
+                    size="small"
+                    color="secondary"
+                    variant="outlined"
+                  />
+                )}
+                {selectedProduct && (
+                  <Chip 
+                    label={`Product: ${selectedProduct}`} 
+                    onDelete={() => setSelectedProduct('')}
+                    size="small"
+                    color="success"
+                    variant="outlined"
+                  />
+                )}
+                {selectedTimeFilter !== '1w' && (
+                  <Chip 
+                    label={`Time: ${TIME_FILTERS.find(f => f.value === selectedTimeFilter)?.label}`} 
+                    onDelete={() => setSelectedTimeFilter('1w')}
+                    size="small"
+                    color="info"
+                    variant="outlined"
+                  />
+                )}
+              </Box>
+            )}
+          </CardContent>
+        </Card>
+
+        {selectedProduct ? (
+          <Fade in={true}>
+            <Box>
+              {/* Product Header */}
+              <Box sx={{ mb: 4 }}>
+                <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+                  <Box>
+                    <Typography 
+                      variant="h4" 
+                      fontWeight="bold" 
+                      sx={{ 
+                        mb: 1,
+                        background: `linear-gradient(135deg, ${theme.palette.text.primary} 0%, ${theme.palette.primary.main} 100%)`,
+                        backgroundClip: 'text',
+                        WebkitBackgroundClip: 'text',
+                        color: 'transparent'
+                      }}
+                    >
+                      {selectedProduct}
+                    </Typography>
+                    <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
+                      <Chip 
+                        icon={priceTrend >= 0 ? <TrendingUp /> : <TrendingDown />}
+                        label={`${priceTrend >= 0 ? '+' : ''}${priceTrend.toFixed(2)} ${currentProductDetails?.currency || ''}`}
+                        color={priceTrend >= 0 ? 'success' : 'error'}
+                        variant="filled"
+                      />
+                      {currentProductDetails && (
+                        <Chip 
+                          label={currentProductDetails.shop_name}
+                          variant="outlined"
+                          color="primary"
+                        />
+                      )}
+                      <Chip 
+                        icon={<DateRange />}
+                        label={`${TIME_FILTERS.find(f => f.value === selectedTimeFilter)?.label} (${priceHistory.length} points)`}
+                        variant="outlined"
+                        color="info"
+                      />
+                    </Box>
+                  </Box>
+                  
+                  {/* Download Button */}
+                  <Tooltip title="Download Excel Report">
+                    <Button
+                      variant="contained"
+                      startIcon={<FileDownload />}
+                      onClick={downloadExcel}
+                      disabled={priceHistory.length === 0}
+                      sx={{
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        boxShadow: theme.shadows[4],
+                        background: `linear-gradient(135deg, ${theme.palette.success.main} 0%, ${theme.palette.success.dark} 100%)`,
+                        '&:hover': {
+                          background: `linear-gradient(135deg, ${theme.palette.success.dark} 0%, ${theme.palette.success.main} 100%)`,
+                          boxShadow: theme.shadows[8],
+                        }
+                      }}
+                    >
+                      Download Report
+                    </Button>
+                  </Tooltip>
+                </Box>
+              </Box>
+              
+              {/* Charts Section - Increased height */}
+              <Grid container spacing={4} sx={{ mb: 4 }}>
+                <Grid item xs={12} lg={7}>
+                  <Card 
+                    elevation={0}
+                    sx={{ 
+                      height: 500, // Increased from 400
+                      border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                      borderRadius: 3,
+                      background: `linear-gradient(135deg, ${alpha(theme.palette.background.paper, 0.9)} 0%, ${alpha(theme.palette.background.default, 0.5)} 100%)`,
+                      backdropFilter: 'blur(10px)'
+                    }}
+                  >
+                    <CardContent sx={{ height: '100%', p: 3 }}>
+                      <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <TrendingUp color="primary" />
+                        Price History ({priceHistory.length} data points)
+                      </Typography>
+                      {priceHistory.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="88%">
+                          <AreaChart data={priceHistory} margin={{ top: 10, right: 30, left: 20, bottom: 60 }}>
+                            <defs>
+                              <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor={theme.palette.primary.main} stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor={theme.palette.primary.main} stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke={alpha(theme.palette.divider, 0.3)} />
+                            <XAxis 
+                              dataKey="dateTime"
+                              tickFormatter={formatXAxisLabel}
+                              tick={{ fontSize: 11 }}
+                              stroke={theme.palette.text.secondary}
+                              angle={-45}
+                              textAnchor="end"
+                              height={80}
+                            />
+                            <YAxis 
+                              domain={['auto', 'auto']}
+                              tickFormatter={(value) => `${value} ${currentProductDetails?.currency || ''}`}
+                              tick={{ fontSize: 12 }}
+                              stroke={theme.palette.text.secondary}
+                              width={80}
+                            />
+                            <RechartsTooltip 
+                              formatter={(value: number) => [`${value} ${currentProductDetails?.currency || ''}`, 'Price']}
+                              labelFormatter={(label) => `Time: ${formatXAxisLabel(label)}`}
+                              contentStyle={{
+                                backgroundColor: theme.palette.background.paper,
+                                border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
+                                borderRadius: '8px',
+                                boxShadow: theme.shadows[8]
+                              }}
+                            />
+                            <Area 
+                              type="monotone" 
+                              dataKey="price" 
+                              stroke={theme.palette.primary.main}
+                              strokeWidth={3}
+                              fill="url(#priceGradient)"
+                              name="Price" 
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <Box 
+                          display="flex" 
+                          alignItems="center" 
+                          justifyContent="center" 
+                          height="88%"
+                          sx={{ color: theme.palette.text.secondary }}
+                        >
+                          <Typography>No price history available for selected time range</Typography>
+                        </Box>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Grid>
+                
+                <Grid item xs={12} lg={5}>
+                  <Card 
+                    elevation={0}
+                    sx={{ 
+                      height: 500, // Increased from 400
+                      border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                      borderRadius: 3,
+                      background: `linear-gradient(135deg, ${alpha(theme.palette.background.paper, 0.9)} 0%, ${alpha(theme.palette.background.default, 0.5)} 100%)`,
+                      backdropFilter: 'blur(10px)'
+                    }}
+                  >
+                    <CardContent sx={{ height: '100%', p: 3 }}>
+                      <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Inventory color="secondary" />
+                        Stock Status ({stockHistory.length} data points)
+                      </Typography>
+                      {stockHistory.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="88%">
+                          <LineChart data={stockHistory} margin={{ top: 10, right: 30, left: 20, bottom: 60 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={alpha(theme.palette.divider, 0.3)} />
+                            <XAxis 
+                              dataKey="dateTime"
+                              tickFormatter={formatXAxisLabel}
+                              tick={{ fontSize: 11 }}
+                              stroke={theme.palette.text.secondary}
+                              angle={-45}
+                              textAnchor="end"
+                              height={80}
+                            />
+                            <YAxis 
+                              domain={[0, 1]} 
+                              tickCount={2}
+                              tickFormatter={(value) => value === 1 ? 'In Stock' : 'Out of Stock'}
+                              tick={{ fontSize: 12 }}
+                              stroke={theme.palette.text.secondary}
+                              width={80}
+                            />
+                            <RechartsTooltip 
+                              formatter={(value: number) => [value === 1 ? 'In Stock' : 'Out of Stock', 'Status']}
+                              labelFormatter={(label) => `Time: ${formatXAxisLabel(label)}`}
+                              contentStyle={{
+                                backgroundColor: theme.palette.background.paper,
+                                border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
+                                borderRadius: '8px',
+                                boxShadow: theme.shadows[8]
+                              }}
+                            />
+                            <Line 
+                              type="monotone" 
+                              dataKey="inStock" 
+                              stroke={theme.palette.success.main}
+                              strokeWidth={3}
+                              dot={{ fill: theme.palette.success.main, strokeWidth: 2, r: 4 }}
+                              name="Stock Status" 
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <Box 
+                          display="flex" 
+                          alignItems="center" 
+                          justifyContent="center" 
+                          height="88%"
+                          sx={{ color: theme.palette.text.secondary }}
+                        >
+                          <Typography>No stock history available for selected time range</Typography>
+                        </Box>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+              
+              {/* Product Details */}
+              <Card 
+                elevation={0}
+                sx={{ 
+                  border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                  borderRadius: 3,
+                  background: `linear-gradient(135deg, ${alpha(theme.palette.background.paper, 0.9)} 0%, ${alpha(theme.palette.background.default, 0.5)} 100%)`,
+                  backdropFilter: 'blur(10px)'
+                }}
+              >
+                <CardContent sx={{ p: 4 }}>
+                  <Typography variant="h6" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Analytics color="primary" />
+                    Latest Details
+                  </Typography>
+                  {currentProductDetails && priceHistory.length > 0 && (
+                    <Grid container spacing={3}>
+                      <Grid item xs={12} sm={6} md={3}>
+                        <Box 
+                          sx={{ 
+                            p: 2, 
+                            borderRadius: 2, 
+                            bgcolor: alpha(theme.palette.primary.main, 0.1),
+                            border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`
+                          }}
+                        >
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            Current Price
+                          </Typography>
+                          <Typography variant="h5" fontWeight="bold" color="primary">
+                            {priceHistory[priceHistory.length - 1].price} {currentProductDetails.currency}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={12} sm={6} md={3}>
+                        <Box 
+                          sx={{ 
+                            p: 2, 
+                            borderRadius: 2, 
+                            bgcolor: alpha(theme.palette.success.main, 0.1),
+                            border: `1px solid ${alpha(theme.palette.success.main, 0.2)}`
+                          }}
+                        >
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            Stock Status
+                          </Typography>
+                          <Chip 
+                            label={priceHistory[priceHistory.length - 1].stock_status ? 'In Stock' : 'Out of Stock'}
+                            color={priceHistory[priceHistory.length - 1].stock_status ? 'success' : 'error'}
+                            variant="filled"
+                          />
+                        </Box>
+                      </Grid>
+                      <Grid item xs={12} sm={6} md={3}>
+                        <Box 
+                          sx={{ 
+                            p: 2, 
+                            borderRadius: 2, 
+                            bgcolor: alpha(theme.palette.info.main, 0.1),
+                            border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`
+                          }}
+                        >
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            Region
+                          </Typography>
+                          <Typography variant="body1" fontWeight="medium">
+                            {currentProductDetails.region}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={12} sm={6} md={3}>
+                        <Box 
+                          sx={{ 
+                            p: 2, 
+                            borderRadius: 2, 
+                            bgcolor: alpha(theme.palette.warning.main, 0.1),
+                            border: `1px solid ${alpha(theme.palette.warning.main, 0.2)}`
+                          }}
+                        >
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            Last Updated
+                          </Typography>
+                          <Typography variant="body2" fontWeight="medium">
+                            {new Date(currentProductDetails.created_at).toLocaleString()}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      
+                      {/* Time Filter Summary */}
+                      <Grid item xs={12} md={6}>
+                        <Box 
+                          sx={{ 
+                            p: 2, 
+                            borderRadius: 2, 
+                            bgcolor: alpha(theme.palette.secondary.main, 0.1),
+                            border: `1px solid ${alpha(theme.palette.secondary.main, 0.2)}`
+                          }}
+                        >
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            Time Range Summary
+                          </Typography>
+                          <Typography variant="body1" fontWeight="medium">
+                            {TIME_FILTERS.find(f => f.value === selectedTimeFilter)?.label} 
+                            ({priceHistory.length} of {allPriceHistory.length} total data points)
+                          </Typography>
+                          {priceHistory.length > 0 && (
+                            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                              From: {priceHistory[0].dateTime} to {priceHistory[priceHistory.length - 1].dateTime}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Grid>
+                      
+                      <Grid item xs={12} md={6}>
+                        <Box 
+                          sx={{ 
+                            p: 2, 
+                            borderRadius: 2, 
+                            bgcolor: alpha(theme.palette.grey[500], 0.05),
+                            border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between'
+                          }}
+                        >
+                          <Box>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              Source URL
+                            </Typography>
+                            <Typography 
+                              variant="body2" 
+                              sx={{ 
+                                maxWidth: '300px', 
+                                overflow: 'hidden', 
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              {currentProductDetails.url}
+                            </Typography>
+                          </Box>
+                          <IconButton 
+                            size="small" 
+                            href={currentProductDetails.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            sx={{ 
+                              bgcolor: alpha(theme.palette.primary.main, 0.1),
+                              '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.2) }
+                            }}
+                          >
+                            <OpenInNew fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      </Grid>
+                    </Grid>
+                  )}
+                </CardContent>
+              </Card>
+            </Box>
+          </Fade>
+        ) : (
+          /* Overview Section */
+          <Fade in={true}>
+            <Box>
+              <Typography variant="h5" sx={{ mb: 4, fontWeight: 'bold' }}>
+                Data Overview
+              </Typography>
+              <Grid container spacing={4}>
+                <Grid item xs={12} md={6}>
+                  <Card 
+                    elevation={0}
+                    sx={{ 
+                      height: 450, // Increased height
+                      border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                      borderRadius: 3,
+                      background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)} 0%, ${alpha(theme.palette.primary.main, 0.1)} 100%)`
+                    }}
+                  >
+                    <CardContent sx={{ p: 4, height: '100%' }}>
+                      <Box display="flex" alignItems="center" gap={2} mb={3}>
+                        <Box 
+                          sx={{
+                            p: 1,
+                            borderRadius: 2,
+                            bgcolor: theme.palette.primary.main,
+                            color: 'white'
+                          }}
+                        >
+                          <Store />
+                        </Box>
+                        <Typography variant="h6" fontWeight="bold">
+                          Shops ({shops.length})
+                        </Typography>
+                      </Box>
+                      <Box sx={{ maxHeight: 330, overflow: 'auto' }}>
+                        {shops.length > 0 ? (
+                          <Box display="flex" flexDirection="column" gap={1}>
+                            {shops.map(shop => (
+                              <Chip 
+                                key={shop} 
+                                label={shop} 
+                                variant="outlined"
+                                sx={{ justifyContent: 'flex-start' }}
+                              />
+                            ))}
+                          </Box>
+                        ) : (
+                          <Typography color="text.secondary">No shops available</Typography>
+                        )}
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Card 
+                    elevation={0}
+                    sx={{ 
+                      height: 450, // Increased height
+                      border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                      borderRadius: 3,
+                      background: `linear-gradient(135deg, ${alpha(theme.palette.secondary.main, 0.05)} 0%, ${alpha(theme.palette.secondary.main, 0.1)} 100%)`
+                    }}
+                  >
+                    <CardContent sx={{ p: 4, height: '100%' }}>
+                      <Box display="flex" alignItems="center" gap={2} mb={3}>
+                        <Box 
+                          sx={{
+                            p: 1,
+                            borderRadius: 2,
+                            bgcolor: theme.palette.secondary.main,
+                            color: 'white'
+                          }}
+                        >
+                          <Category />
+                        </Box>
+                        <Typography variant="h6" fontWeight="bold">
+                          Categories ({categories.length})
+                        </Typography>
+                      </Box>
+                      <Box sx={{ maxHeight: 330, overflow: 'auto' }}>
+                        {categories.length > 0 ? (
+                          <Box display="flex" flexDirection="column" gap={1}>
+                            {categories.map(category => (
+                              <Chip 
+                                key={category} 
+                                label={category} 
+                                variant="outlined"
+                                color="secondary"
+                                sx={{ justifyContent: 'flex-start' }}
+                              />
+                            ))}
+                          </Box>
+                        ) : (
+                          <Typography color="text.secondary">No categories available</Typography>
+                        )}
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+              
+              {/* Time Filter Info Card */}
+              <Card 
+                elevation={0}
+                sx={{ 
+                  mt: 4,
+                  border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                  borderRadius: 3,
+                  background: `linear-gradient(135deg, ${alpha(theme.palette.info.main, 0.05)} 0%, ${alpha(theme.palette.info.main, 0.1)} 100%)`
+                }}
+              >
+                <CardContent sx={{ p: 4 }}>
+                  <Box display="flex" alignItems="center" gap={2} mb={2}>
+                    <Box 
+                      sx={{
+                        p: 1,
+                        borderRadius: 2,
+                        bgcolor: theme.palette.info.main,
+                        color: 'white'
+                      }}
+                    >
+                      <Schedule />
+                    </Box>
+                    <Typography variant="h6" fontWeight="bold">
+                      Time Filter: {TIME_FILTERS.find(f => f.value === selectedTimeFilter)?.label}
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Select a product above to see price and stock trends for the selected time range. 
+                    Total data points available: {pricingData.reduce((acc, item) => acc + item.pricing_data.length, 0)}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Box>
+          </Fade>
+        )}
+      </Box>
+    </Container>
+  );
+};
+
+export default Insights;

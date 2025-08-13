@@ -1,92 +1,92 @@
 import './CourseCatalog.css';
+import 'react-toastify/dist/ReactToastify.css';
 
 import { Badge, Button, Card, Col, Container, Row } from 'react-bootstrap';
 import { FaArrowRight, FaBook, FaChalkboardTeacher, FaClock, FaGraduationCap, FaLaptopCode, FaStar, FaUserGraduate, FaUsers } from 'react-icons/fa';
 
 import React from 'react';
 import { assest } from '../../assest/assest';
+import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 
 const CourseCatalog = () => {
-   const navigate = useNavigate();
+  const navigate = useNavigate();
+
   const courses = [
-  {
-    name: 'Grade 10 English Class',
-    image: assest.ten_end, // replace with correct image
-    description: 'Improve English grammar, writing, and reading skills tailored for Grade 10 students.',
-    topics: ['Grammar', 'Reading Comprehension', 'Essay Writing', 'Vocabulary'],
-    duration: '12 weeks',
-    level: 'Grade 10',
-    rating: 4.7,
-    students: 900,
-    category: 'English',
-    link: '/courses/grade10-english'
-  },
-  {
-    name: 'Grade 11 English Class',
-    image: assest.eleven_end, // replace with correct image
-    description: 'Advanced English preparation for Grade 11 students including literature and writing.',
-    topics: ['Literature Analysis', 'Advanced Grammar', 'Creative Writing', 'Exam Practice'],
-    duration: '12 weeks',
-    level: 'Grade 11',
-    rating: 4.8,
-    students: 1100,
-    category: 'English',
-    link: '/courses/grade11-english'
-  },
-  {
-    name: 'Grade 10 Mathematics Class',
-    image: assest.ten_math, // replace with correct image
-    description: 'Master mathematical concepts including algebra and geometry for Grade 10.',
-    topics: ['Algebra', 'Geometry', 'Mensuration', 'Basic Trigonometry'],
-    duration: '12 weeks',
-    level: 'Grade 10',
-    rating: 4.6,
-    students: 980,
-    category: 'Mathematics',
-    link: '/courses/grade10-maths'
-  },
-  {
-    name: 'Grade 11 Mathematics Class',
-    image: assest.eleven_end, // replace with correct image
-    description: 'Prepare for advanced mathematical concepts like calculus and statistics in Grade 11.',
-    topics: ['Trigonometry', 'Calculus Basics', 'Statistics', 'Functions'],
-    duration: '12 weeks',
-    level: 'Grade 11',
-    rating: 4.9,
-    students: 1150,
-    category: 'Mathematics',
-    link: '/courses/grade11-maths'
-  },
-  {
-    name: 'Grade 10 Commerce Class',
-    image: assest.ten_com, // replace with correct image
-    description: 'Learn the fundamentals of commerce, trade, and business for Grade 10.',
-    topics: ['Introduction to Commerce', 'Basic Accounting', 'Trade', 'Banking'],
-    duration: '12 weeks',
-    level: 'Grade 10',
-    rating: 4.5,
-    students: 870,
-    category: 'Commerce',
-    link: '/courses/grade10-commerce'
-  },
-  {
-    name: 'Grade 11 Commerce Class',
-    image: assest.eleven_com, // replace with correct image
-    description: 'Advanced commerce concepts including business environment and financial literacy.',
-    topics: ['Business Studies', 'Accounting', 'Economics Basics', 'Entrepreneurship'],
-    duration: '12 weeks',
-    level: 'Grade 11',
-    rating: 4.7,
-    students: 960,
-    category: 'Commerce',
-    link: '/courses/grade11-commerce'
-  }
-];
+    {
+      name: 'Grade 10 English Class',
+      image: assest.ten_end,
+      description: 'Improve English grammar, writing, and reading skills tailored for Grade 10 students.',
+      topics: ['Grammar', 'Reading Comprehension', 'Essay Writing', 'Vocabulary'],
+      duration: '12 weeks',
+      level: 'Grade 10',
+      rating: 4.7,
+      students: 900,
+      category: 'English',
+      link: '/courses/grade10-english'
+    },
+    {
+      name: 'Grade 11 English Class',
+      image: assest.eleven_end,
+      description: 'Advanced English preparation for Grade 11 students including literature and writing.',
+      topics: ['Literature Analysis', 'Advanced Grammar', 'Creative Writing', 'Exam Practice'],
+      duration: '12 weeks',
+      level: 'Grade 11',
+      rating: 4.8,
+      students: 1100,
+      category: 'English',
+      link: '/courses/grade11-english'
+    },
+    {
+      name: 'Grade 10 Mathematics Class',
+      image: assest.ten_math,
+      description: 'Master mathematical concepts including algebra and geometry for Grade 10.',
+      topics: ['Algebra', 'Geometry', 'Mensuration', 'Basic Trigonometry'],
+      duration: '12 weeks',
+      level: 'Grade 10',
+      rating: 4.6,
+      students: 980,
+      category: 'Mathematics',
+      link: '/courses/grade10-maths'
+    },
+    {
+      name: 'Grade 11 Mathematics Class',
+      image: assest.eleven_end,
+      description: 'Prepare for advanced mathematical concepts like calculus and statistics in Grade 11.',
+      topics: ['Trigonometry', 'Calculus Basics', 'Statistics', 'Functions'],
+      duration: '12 weeks',
+      level: 'Grade 11',
+      rating: 4.9,
+      students: 1150,
+      category: 'Mathematics',
+      link: '/courses/grade11-maths'
+    },
+    {
+      name: 'Grade 10 Commerce Class',
+      image: assest.ten_com,
+      description: 'Learn the fundamentals of commerce, trade, and business for Grade 10.',
+      topics: ['Introduction to Commerce', 'Basic Accounting', 'Trade', 'Banking'],
+      duration: '12 weeks',
+      level: 'Grade 10',
+      rating: 4.5,
+      students: 870,
+      category: 'Commerce',
+      link: '/courses/grade10-commerce'
+    },
+    {
+      name: 'Grade 11 Commerce Class',
+      image: assest.eleven_com,
+      description: 'Advanced commerce concepts including business environment and financial literacy.',
+      topics: ['Business Studies', 'Accounting', 'Economics Basics', 'Entrepreneurship'],
+      duration: '12 weeks',
+      level: 'Grade 11',
+      rating: 4.7,
+      students: 960,
+      category: 'Commerce',
+      link: '/courses/grade11-commerce'
+    }
+  ];
 
-   
-
-  // Enhanced LMS features section
   const features = [
     {
       icon: <FaChalkboardTeacher className="feature-icon" />,
@@ -143,6 +143,25 @@ const CourseCatalog = () => {
       case 'Design': return 'danger';
       case 'Career': return 'secondary';
       default: return 'dark';
+    }
+  };
+
+  const handleEnrollClick = () => {
+    const token = localStorage.getItem('token');
+   
+    if (token) {
+      navigate('/all-class');
+    } else {
+      toast.error('Please login to enroll in this course', {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "light",
+      });
     }
   };
 
@@ -242,7 +261,7 @@ const CourseCatalog = () => {
                         variant="primary" 
                         size="sm" 
                         className="rounded-pill fw-semibold"
-                        href={course.link}
+                        onClick={() => handleEnrollClick('/all-class')}
                       >
                         Enroll Now
                         <FaArrowRight className="ms-2" />
@@ -298,7 +317,6 @@ const CourseCatalog = () => {
               </p>
               <div className="d-flex gap-3 justify-content-center flex-wrap">
                 <Button onClick={() => navigate("/all-class")} variant="light" size="lg" className="rounded-pill px-4 fw-semibold">
-                  
                   Browse All Courses
                 </Button>
                 <Button variant="outline-light" size="lg" className="rounded-pill px-4 fw-semibold">
